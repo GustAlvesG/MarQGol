@@ -4,10 +4,14 @@ Guia para agentes Claude (Claude Code) trabalhando neste repositório. Escrito e
 português, como o código, os comentários e a interface. **Responda ao usuário em
 português.**
 
+> Branch `saas`: **MarQGol**, o placar vendido como serviço
+> (`https://marqgol.artzan.tech`). O sistema original do Clube dos Funcionários,
+> com a integração Laravel, continua no branch `cfcsn` — não misture.
+
 Documentação completa:
+- [docs/saas/planejamento.md](docs/saas/planejamento.md) — decisões de produto e fases
 - [docs/documentacao-tecnica.md](docs/documentacao-tecnica.md) — arquitetura, contratos, módulos, telão
-- [docs/manual-do-usuario.md](docs/manual-do-usuario.md) — como os operadores usam o sistema
-- [docs/prompt-api-parciais.md](docs/prompt-api-parciais.md) — pedido pendente ao time Laravel
+- [docs/manual-do-usuario.md](docs/manual-do-usuario.md) — como clientes e operadores usam o sistema
 
 Este arquivo resume o que um agente precisa saber **antes** de mexer no código:
 o mapa, as invariantes e as armadilhas. Ao mudar comportamento, atualize também
@@ -17,73 +21,118 @@ a documentação em `docs/` (e este arquivo, se a mudança afetar algo listado a
 
 ## Visão geral
 
-Placar eletrônico em tempo real para **futsal, basquete e vôlei**, transmitido a
-várias telas via WebSocket na rede local do ginásio.
+Placar eletrônico em tempo real para **futsal, basquete e vôlei**, multi-cliente.
+Cada **cliente** (clube, escola, liga) tem **placares** (quadras), cada placar
+tem seu jogo, seu controle (tablet) e suas TVs pareadas. O cliente agenda jogos,
+cadastra times e jogadores, e assina um **plano** com limites. O dono do SaaS
+(superadmin) gerencia clientes, planos e limites em `/admin`.
 
-- Backend: Node.js 22+ (`fetch`/`FormData`/`crypto.randomUUID` nativos) + Express 5 + Socket.IO 4.
-- Frontend: HTML/CSS/JS puro servido de `public/`. **Sem build, sem framework, sem bundler.**
-- Integração opcional com uma API Laravel externa ("Placar Clube") — fonte de
-  verdade de times/jogadores/jogos e da súmula.
+- Backend: Node.js 22+ + Express 5 + Socket.IO 4 + **PostgreSQL** (`pg`).
+- Frontend: HTML/CSS/JS puro em `public/`. **Sem build, sem framework, sem bundler.**
+- Cobrança: **Asaas** (assinatura recorrente + webhooks). E-mail: SMTP (nodemailer).
+- Hospedagem: VPS Hostinger com Docker, atrás do Caddy "edge" (seção Deploy).
 
 ## Comandos
 
 ```bash
-npm start              # produção (node server.js) — porta 4000
-npm run dev            # nodemon (recarrega só em server.js / gameLogic.js)
-npm test               # node --test — 4 arquivos em test/, 149 testes
-npm run test:watch
-node --test test/gameLogic.test.js   # um arquivo só
+npm run db             # Postgres de dev embutido (porta 5433, pasta .pgdata/) — deixe num terminal
+npm run dev            # nodemon; em dev o servidor migra e cria planos/superadmin sozinho
+npm start              # node server.js
+npm test               # sobe Postgres descartável e roda node --test (unitários + ponta a ponta)
+npm run test:unit      # só node --test (testes de banco são pulados sem TEST_DATABASE_URL)
+npm run migrate        # aplica migrações + dados iniciais (produção usa o serviço `migrate`)
+node scripts/gerar-arte-padrao.js   # regera public/arte-padrao/*.svg
 ```
 
-Não há lint configurado. A porta é **4000**, fixa em `server.listen(4000, '0.0.0.0')`.
+`.env` de dev: copie `.env.example` (`DATABASE_URL`, `SUPERADMIN_EMAIL/SENHA`).
+Não há Docker na máquina de dev: o Postgres vem do pacote `embedded-postgres`
+(devDependency). No Windows o `stop()` dele trava; `scripts/pg-embutido.js` para
+pelo `pg_ctl`. Não há lint.
 
-Para verificar de ponta a ponta use a skill **`verify`**
-(`.claude/skills/verify/SKILL.md`): sobe uma instância isolada na porta 4100
-(`node -e "const {server}=require('./server.js'); server.listen(4100,...)"`) e
-dirige as páginas com Playwright (devDependency; não há specs Playwright no repo).
+Para verificar telas de ponta a ponta: suba um Postgres e o servidor isolados
+(outra porta, `DATA_DIR` temporário) e dirija com Playwright (devDependency).
 A porta 4000 costuma estar ocupada pelo servidor de dev do usuário.
 
 ## Mapa do código
 
 | Arquivo | Papel |
 |---|---|
-| [gameLogic.js](gameLogic.js) | **Toda** regra de jogo. Funções puras: recebem `state` mutável + payload, mutam no lugar, devolvem `{ animacoes }` quando há efeito para clientes. Zero dependência de rede/`fs`/`path`. |
-| [server.js](server.js) | Transporte fino: `gameState` global, handlers `socket.on`, `broadcast()`, upload/exclusão HTTP, bookkeeping da integração. |
-| [placarApi.js](placarApi.js) | Cliente HTTP da API Laravel. Sem estado; toda função recebe `config = { baseUrl, token, fetchImpl? }`. |
-| [placarEventos.js](placarEventos.js) | Fila de eventos para a API: uuid/sequência no momento da ação, estorno, envio em lote. |
-| [env.js](env.js) | Carregador mínimo de `.env` (sem `dotenv`); nunca sobrescreve variáveis do ambiente. |
-| `public/index.html` + `style.css` | **Telão**. |
-| `public/controle/index.html` | Só redireciona `/controle/` para `controle.html#preparar` (entrada do operador). |
-| `public/controle/configuracao.html` | Configuração (esporte, times, elenco, API, transmissão). |
-| `public/controle/controle.html` | **Controle** (antes "Mesa") — **uma tela para os três esportes**. |
-| `public/controle/controle_anuncios.html` | **Mídia**: vídeos, slides (inclui PDF→PNG), patrocinadores. |
-| `public/controle/ui.css` + `ui.js` | Base visual e diálogos (`avisar`/`confirmar`/`toast`/`data-segurar`) da configuração e da mídia. |
-| `public/controle/controle_{futsal,basquete,volei}.html` | Só redirecionam para `controle.html` (atalhos antigos nos tablets). **Não apagar.** |
-| `public/static.html` | Placar minimalista (só números). |
-| `public/placar-neutro.html` | Placar paralelo neutro, tema claro/escuro, só leitura e **só pela URL** (não linkar). |
-| `public/base/` | Arte do telão, **versionada**. Sem endpoint de upload. |
-| `public/videos/`, `slides/`, `patrocinadores/` | Mídia enviada pelo operador — gitignored, criadas no boot. |
+| [gameLogic.js](gameLogic.js) | **Toda** regra de jogo. Funções puras sobre um `state`. Igual ao do branch `cfcsn` — correção de regra vale para os dois (`git cherry-pick`). |
+| [placarEventos.js](placarEventos.js) | Tradução de ação → evento da súmula (uuid/sequência no momento da ação, estorno). Agora grava no Postgres, não numa API. |
+| [server.js](server.js) | Entrada: banco, migração em dev, porta, desligamento limpo (grava os placares). |
+| [src/app.js](src/app.js) | Monta tudo (`criarApp({ db, cfg, email, fetchAsaas })`) sem escutar porta — os testes usam. |
+| [src/config.js](src/config.js) | Única leitura de `process.env`. |
+| [src/db/](src/db/) | Pool `pg`, migrador (`migrations/*.sql`, sem "down"). |
+| [src/repos.js](src/repos.js) | **Todo SQL de negócio.** Funções de dado de cliente recebem `clienteId` e o põem no WHERE. |
+| [src/limites.js](src/limites.js) | Limites/recursos de plano (puro). |
+| [src/auth.js](src/auth.js) | Sessão (Postgres), papéis, "entrar como", cookie de TV (`marq_tela`), CSRF por cabeçalho `X-MarQ`. |
+| [src/placares/gerenciador.js](src/placares/gerenciador.js) | Um estado por placar em memória + gravação no banco (~1 s), sala Socket.IO `placar:<id>`, súmula. |
+| [src/placares/sockets.js](src/placares/sockets.js) | Autorização do socket e handlers (mesmos eventos do sistema antigo, por sala). |
+| [src/servicos/](src/servicos/) | `agenda` (limite de jogos, formato de jogo), `contas` (cadastro, convite, senha), `cobranca` (Asaas, ciclo de status), `asaas`, `email`. |
+| [src/rotas/](src/rotas/) | `publico` (auth), `telas` (pareamento), `arquivos` (páginas por placar, mídia, arte, uploads), `app` (área do cliente), `admin` (painel). |
+| [src/tarefas.js](src/tarefas.js) | A cada 5 min expira jogos; a cada hora revisa teste/inadimplência. |
+| `public/site/` | Venda, entrar, cadastro, senha, convite, termos (servido na raiz, `/entrar` → `entrar.html`). |
+| `public/app/` | Área do cliente (`/app/`). |
+| `public/admin/` | Painel de gestão (`/admin/`), só superadmin. |
+| `public/telao/` | Página de pareamento de TV (`/telao`). |
+| `public/placar/` | Telão (`index.html` + `style.css`), `static.html`, `placar-neutro.html` — servidos em `/p/<id>/`. |
+| `public/controle/` | Controle, configuração, mídia — servidos em `/p/<id>/controle/`. |
+| `public/comum/` | `ui.css`/`ui.js` (base visual e diálogos), `marq.js` (API, socket do placar), `site.css`. |
+| `public/arte-padrao/` | Arte neutra (SVG, gerada por script) e **gabarito** da arte de cliente. |
 
-**Onde mexer:** regra de jogo → `gameLogic.js` + teste em `test/gameLogic.test.js`.
-O que dispara a regra ou como o estado chega aos clientes → `server.js`. Valores
-derivados de que a mesa/telão precisam → calcule em `gameLogic` e exponha em
-`payloadEstado()`; **não reimplemente regra no HTML**.
+**Onde mexer:** regra de jogo → `gameLogic.js` + teste. SQL → `src/repos.js`.
+Limite/recurso → `src/limites.js` + conferência no servidor. Algo que o telão
+precisa → `payloadEstado()` em `gerenciador.js`; **não reimplemente regra no HTML**.
+
+## Multi-cliente e segurança (NÃO afrouxar)
+
+- Toda tabela de cliente tem `cliente_id`; repositório **sempre** filtra por ele,
+  mesmo buscando por id. Teste de isolamento em `test/saas.test.js`.
+- Limites são conferidos **no servidor** (a tela só mostra). Criar jogo trava a
+  linha do cliente (`FOR UPDATE`) antes de contar os jogos em aberto.
+- Socket: o cliente diz o placar (`io({ query: { placar } })`, via `MARQ.conectar()`).
+  Operador = usuário do cliente dono; TV = cookie `marq_tela` daquele placar
+  (só recebe — nenhum handler de comando é registrado para ela). Depois de
+  downgrade, só os N primeiros placares ativos operam (`placar_excedente`).
+- Toda mutação em `/api` exige o cabeçalho `X-MarQ: 1` (CSRF). Webhook do Asaas
+  é a exceção, autenticado por `asaas-access-token`.
+- Logo/foto de time e jogador: só URL `/arquivos/<cliente>/...` gerada pelo upload.
+- Suspensão/inadimplência **nunca derruba jogo ao vivo**: bloqueia agendar,
+  carregar e cadastrar (HTTP 402 `assinatura_suspensa`), não os comandos de placar.
+- "Entrar como" (suporte) fica na sessão (`comoClienteId`) e na auditoria.
+
+## Regras de produto do SaaS
+
+- Limite de **placares** = placares ativos. Limite de **jogos** = jogos com status
+  `agendado` ou `ao_vivo`; encerrar/cancelar libera. Agendado vencido há **24 h**
+  sem começar vira `expirado` (libera; pode ser reagendado).
+- Teste de **14 dias** (por plano, `dias_teste`), sem marca d'água. Fim do teste:
+  sem assinatura → `suspenso`; com fatura aberta → `inadimplente`. Inadimplente
+  há 7 dias → `suspenso`. Pagamento confirmado (webhook) → `ativo`.
+- A primeira cobrança vence no fim do teste. `billingType: UNDEFINED` (quem paga
+  escolhe Pix/boleto/cartão).
+- Arte do telão por cliente: slots em `armazenamento.SLOTS_ARTE`; o telão pede
+  `base/<slot>.png` e o servidor serve o arquivo do cliente (qualquer extensão)
+  ou o SVG padrão. Mudou a arte → `arte.versao` sobe e o telão recarrega.
+- Súmula/estatística pública ficam **fora** (outro app vai se integrar depois).
 
 ## Fluxo de dados
 
-Tela de controle → evento Socket.IO → handler em `server.js` → função de
-`gameLogic` muta `gameState` → servidor emite animações → `broadcast()` envia
-`atualizar_tela` (estado completo + `serverTime` + derivados) para **todos** os
-clientes. Sem filtragem por cliente. Só depois disso, se houver jogo da API
-carregado, a ação vira evento na fila (atualização **otimista**).
+Controle → evento Socket.IO → handler em `src/placares/sockets.js` → função de
+`gameLogic` muta o estado **daquele placar** → animações e `atualizar_tela`
+(estado + `serverTime` + derivados) para **a sala do placar**. Depois, se houver
+jogo da agenda carregado, a ação vira evento da súmula (atualização **otimista**).
 
-Um único `gameState` por processo, **só em memória** (reiniciar zera tudo,
-inclusive a fila de eventos pendentes da API).
+Um estado por placar, em memória no `GerenciadorDePlacares` e gravado no
+Postgres (`placares.estado`/`sessao`, ~1 s depois da mudança e no desligamento).
+Reiniciar o processo **não** perde placar nem eventos pendentes da súmula.
+Um processo só (sem Redis): escalar horizontalmente exigiria adapter do Socket.IO.
 
 Formato do estado: ver `criarEstadoInicial()` e a seção 5 da documentação técnica.
 Campos derivados em `atualizar_tela`: `parcialFechavel`, `parcialAtual`,
 `totalParciais`, `parcialEmAndamento`, `setPoint`, `lances` (com `estornavel`),
-`limiteFaltas`, `alertaFaltas`.
+`limiteFaltas`, `alertaFaltas`, e do SaaS: `placar {id, nome}`, `clienteNome`,
+`arte {versao, bordas}`.
 
 ## Invariantes e decisões que NÃO devem ser desfeitas
 
@@ -105,16 +154,16 @@ Campos derivados em `atualizar_tela`: `parcialFechavel`, `parcialAtual`,
   `state.lances` (jogador sem foto). Correção = `estornar_lance` (marca
   `estornado`, nunca apaga) ou `reabrir_set`. O que pode ser corrigido é
   `lanceEstornavel` (ponto só da parcial atual, falta só do período atual, set só
-  o último). `seqLance` não zera no `zerar_tudo` (ids ligam lance → uuid na API).
+  o último). `seqLance` não zera no `zerar_tudo` (ids ligam lance → uuid na súmula).
 - Faltas: `REGRAS_FALTA` (futsal 5, basquete 4) só gera **aviso** (`alertaFaltas`).
   `zerar_faltas` é ação separada de `add_periodo` de propósito (± período corrige
   sem apagar faltas).
 
 ### Dois "zerar", ambos necessários
 - `comando_placar` / `zerar_tudo` (mesa): zera números e cronômetro, **preserva**
-  times, elenco, transmissão e vínculo com a API.
-- `zerar_configuracao_completa` (configuração): estado inicial + desvincula a API;
-  preserva só `patrocinadores` e `videoStandby` (vêm de pasta).
+  times, elenco, transmissão e o jogo carregado.
+- `zerar_configuracao_completa` (configuração): estado inicial + descarrega o
+  jogo; preserva só `patrocinadores` e `videoStandby` (vêm do cliente).
 
 ### Sincronização do relógio
 Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
@@ -122,32 +171,30 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
 `public/placar-neutro.html` e
 `public/controle/controle.html` — mude nos três.
 
-### Integração com a API Laravel
-- Configurada por `LARAVEL_BASE_URL` (sem `/api/placar`) e `LARAVEL_API_TOKEN` no
-  `.env`. Sem elas: modo manual, nada quebra.
-- Bookkeeping (`integracao`: ids, fila, status, `uuidPorLance`) fica **fora** do
-  `gameState`. `estornar_lance` estorna o uuid exato do lance
-  (`placarEventos.estornarEvento`), não o "último da chave".
-- Log da API é **append-only**: correção = evento `estorno` referenciando o uuid
-  original, nunca update/delete. `zerar_tudo` não é sincronizado.
-- `cronometro_ms` é **obrigatório** em `ponto`/`falta`: use
-  `logic.tempoDecorrido(cronometro)`, nunca `tempoAcumulado` sozinho.
-- uuid/sequência gerados no momento da ação (retry reenvia o mesmo uuid). Envio
-  em lote, retry a cada 5 s, `tentarEnviarPendentes` nunca lança.
-- O **primeiro PLAY** do cronômetro marca o jogo como ao vivo (`iniciarJogoNaApi`,
-  `integracao.iniciado`) — decisão explícita do usuário.
-- O fluxo **pela API é o principal**; o manual é fallback. A configuração abre em
-  "Selecionar jogo existente".
-- `GET /scout/artilharia` foi removido da API. Parciais ainda não voltam da API
-  (ver `docs/prompt-api-parciais.md`). Comentários citam
-  `docs/placar-clube-api.md`, que **não está neste repo** (é do time Laravel).
+### Agenda e súmula (antes: API Laravel)
+- O contrato de socket do controle é o **mesmo** da época da API externa
+  (`placar_chamar`, `placar_carregar_jogo`, `placar_criar_jogo`,
+  `placar_iniciar_jogo`, `placar_salvar_escalacao`, `placar_encerrar_jogo`,
+  `integracao_status`), respondido pelo Postgres. O formato de jogo
+  (`{ jogo, time_casa, time_fora }` com elenco) vem de `servicos/agenda.js`.
+  Mantido assim de propósito: o controle quase não mudou.
+- `placar_chamar` aceita: `ping`, `listarJogos`, `listarTimes`, `elencoDoTime`,
+  `criarTime` (por nome, reaproveita), `agendarJogo` (Agendar do controle).
+- Súmula **append-only** em `eventos_jogo`: correção = evento `estorno` com o uuid
+  original, nunca update/delete. `zerar_tudo` não entra.
+- `cronometro_ms` é **obrigatório** em `ponto`/`falta`: `logic.tempoDecorrido`.
+- uuid/sequência gerados no momento da ação; a gravação é em lote e idempotente
+  (uuid é PK). Lances que chegam durante uma gravação entram na volta seguinte.
+- O **primeiro PLAY** marca o jogo como `ao_vivo` (`gerenciador.iniciarJogo`).
+- Só jogo `agendado`/`ao_vivo` carrega no controle; `expirado` precisa ser reagendado.
+- O fluxo **pela agenda é o principal**; o manual (sem súmula) é fallback.
 
 ### Tela de configuração (`public/controle/configuracao.html`)
 - `enviarConfiguracao()` = só emite. `salvarConfig()` = emite + valida + **trava**
   o formulário. `aplicarRespostaJogoNaTela` (Carregar e avulso) chama
   `enviarConfiguracao()` e **não trava** — editar elenco logo após carregar é
   normal. Não coloque a trava dentro de `enviarConfiguracao`.
-- O cartão de transmissão fica logo abaixo do cartão da API; `#lista-jogos` tem
+- O cartão de transmissão fica logo abaixo do cartão do jogo; `#lista-jogos` tem
   altura limitada com rolagem própria.
 - O esporte marcado e não salvo não é desfeito por `atualizar_tela`
   (`esporteEditado`) — enviar uma logo dispara broadcast.
@@ -163,9 +210,9 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
 - Na interface o nome é **Controle**, nunca "Mesa" (pedido do usuário). Nomes
   internos antigos (`.mesa`, `renderMesa`) podem ficar.
 - Feita para **tablet** (paisagem; funciona em pé). CSS próprio, **sem Tailwind**,
-  tema escuro fixo. Três abas no hash: `#preparar` (jogos da API + checklist),
+  tema escuro fixo. Três abas no hash: `#preparar` (jogos da agenda + checklist + Agendar),
   `#controle` (o antigo `#mesa` ainda funciona), `#telao` (cenas placar/slides/espera, comerciais, slides). Sem hash e
-  com API configurada sem jogo carregado, abre em Preparar. "Ir para o controle"
+  sem jogo carregado, abre em Preparar. "Ir para o controle"
   pergunta se põe o jogo no telão quando a transmissão está desligada.
 - O que muda por esporte vive no objeto `ESPORTES` no topo do script
   (`botoes` com valor/rótulo, `verbo`, `faltas`/`avisoFalta`, `periodo`/`periodos`,
@@ -178,7 +225,7 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
   "desfazer por 5 s"). Age só sobre o último lance não estornado e só acende se
   ele for `estornavel`; nunca pula para um lance mais antigo. Ponto/falta →
   `estornar_lance`; set → `reabrir_set`. Lances antigos: gaveta **Lances**.
-- Ações destrutivas no Mais (zerar, zerar faltas, encerrar na API) são de
+- Ações destrutivas no Mais (zerar, zerar faltas, encerrar jogo) são de
   **segurar 1,2 s** (`data-segurar`). A tela não usa `alert()`/`confirm()`:
   avisos abrem uma folha (`avisar()`), retornos rápidos usam `toast()`.
 - Cores dos times são **variáveis CSS** (`.tema-azul`/`.tema-vermelho`, via
@@ -208,10 +255,11 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
   `#placar-flutuante` (que repete o relógio no centro, `#pf-tempo` — o tempo fica
   em cima **e** embaixo); `atualizarPlacarFlutuante()` roda a cada `atualizar_tela`.
   Não vale para futsal/vôlei; comerciais/slides/standby cobrem tudo de propósito.
-- Vídeo de espera: `escolherVideoBase()` = 1º vídeo em ordem alfabética de
-  `public/base/` (estável entre telões); `sincronizarVideoStandby()` roda no boot e
-  a cada conexão. `aplicarStandby()` só troca `src` quando o nome muda e pausa
-  durante a transmissão. Sem vídeo → cartão `#standby-texto`.
+- Vídeo de espera: slot `espera` da arte do cliente (`base/espera.mp4`), em
+  `videoStandby`. `aplicarStandby()` só troca `src` quando o nome muda e pausa
+  durante a transmissão. Sem vídeo → cartão `#standby-texto` com o nome do cliente.
+- Bordas da arte (`--borda-arte-*`): o padrão casa com `public/arte-padrao`; arte
+  de cliente manda as dela em `arte.bordas` e `aplicarArte()` sobrescreve.
 - Tela cheia pedida no primeiro gesto (uma vez); depois duplo-clique alterna.
   `resize` com debounce re-roda `ajustarNome()`.
 - Autoplay: vídeos começam mudos se preciso (`tocarSemGesto`), som liga quando
@@ -220,30 +268,36 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
   em `sportConfig.basquete` (index.html) e `parciais: true` em `ESPORTES` (controle.html).
 
 ### Arquivos e uploads
-- `POST /api/upload/:tipo?nome=` (corpo direto em disco, sem multer) e
-  `DELETE /api/:tipo/:nome`, com `tipo` ∈ `video | patrocinador | slide`.
-  Nome passa por `sanitizarNomeArquivo()`; extensão validada por tipo.
-- `public/base/` fica **fora** de `TIPOS_ARQUIVO` de propósito.
+- Tudo do cliente fica em `DATA_DIR/clientes/<id>/` (volume `dados` em produção):
+  `videos/`, `slides/`, `patrocinadores/`, `arte/`, `fotos/`, `videos-jogador/`.
+- `POST /api/midia/:tipo?nome=` / `DELETE /api/midia/:tipo/:nome` (`video |
+  patrocinador | slide`), corpo cru gravado por stream; cota do plano conferida
+  pelo `Content-Length` e durante a gravação (413). Nome por `sanitizarNomeArquivo()`.
+- Fotos/logos/vídeo de jogador: `POST /api/app/arquivos/foto|video-jogador`
+  (nome aleatório) → URL `/arquivos/<cliente>/...`, vista por usuário ou TV do cliente.
+- O telão lê a mídia por caminho **relativo** (`videos/x.mp4` sob `/p/<id>/`).
+  Não use caminho absoluto nessas páginas.
 - Estáticos `.html/.css/.js` saem com `Cache-Control: no-cache` (telão fica dias
   aberto e precisa pegar deploys).
 - `comando_video` (com `loop`) é repasse puro para `executar_video`; slides têm
-  estado no `gameState` (telão que reconecta sincroniza).
+  estado no estado do placar (telão que reconecta sincroniza).
 
-## Limitações conhecidas (não "consertar" sem combinar com o usuário)
+## Limitações conhecidas
 
-Estado só em memória; um jogo por processo; sem autenticação nos sockets nem nos
-uploads; sem limite de tamanho de upload; handlers síncronos sem `try/catch`;
-fotos base64 em todo broadcast; importar planilha e PDF dependem de CDN
-(SheetJS, pdf.js); sem testes de `server.js`/frontend. O roadmap dessas melhorias
-foi discutido com o usuário — pergunte antes de iniciar uma delas.
+Um processo só (estado dos placares em memória + Postgres; sem Redis); se a
+internet do ginásio cair, o telão congela no último estado (há faixa "sem
+conexão"); arquivos dos clientes em disco (sem S3); o backup diário cobre só o
+banco; importar planilha e PDF dependem de CDN (SheetJS, pdf.js); bloco de
+`clockOffset` repetido no telão, controle e placar neutro.
 
 ## Convenções
 
 - Código, comentários, mensagens de commit e UI em **português**.
 - Comentários explicam o **porquê** (há muitos — leia-os antes de alterar um trecho).
-- Testes com `node:test` + `node:assert/strict`, sem dependências; injete `now`
-  e `fetchImpl` em vez de mockar módulos.
-- Depois de mudar comportamento visível, rode `npm test` e, para telas, a skill `verify`.
+- Testes com `node:test` + `node:assert/strict`; injete `now` e `fetchImpl` em
+  vez de mockar módulos. Ponta a ponta: `test/apoio/servidor.js` sobe o app
+  inteiro com banco próprio, e-mail em memória e Asaas falso.
+- Depois de mudar comportamento visível, rode `npm test` e verifique as telas.
 
 
 

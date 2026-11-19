@@ -1,80 +1,38 @@
-# Placar Clube 🏀⚽🏐
+# MarQGol 🏀⚽🏐
 
-Placar eletrônico em tempo real para **futsal, basquete e vôlei**, transmitido para
-vários telões ao mesmo tempo pela rede local, com mesa de controle em tablet,
-animações de ponto com foto/vídeo do jogador, comerciais, slides, carrossel de
-patrocinadores e integração opcional com a API do clube (súmula oficial).
+Placar eletrônico em tempo real **como serviço** para **futsal, basquete e vôlei**:
+telão em qualquer TV (pareada por código), controle no tablet, agenda de jogos
+com súmula, times e jogadores, comerciais, slides e patrocinadores — para vários
+clientes, cada um com seus placares (quadras), usuários, arte e plano.
+
+`https://marqgol.artzan.tech` · branch `saas` (o sistema original do Clube dos
+Funcionários fica no branch `cfcsn`).
 
 ## Documentação
 
-- 📘 **[Manual do Usuário](docs/manual-do-usuario.md)** — para quem opera o placar nos jogos
-- 🛠️ **[Documentação Técnica](docs/documentacao-tecnica.md)** — arquitetura, contratos, manutenção
-- 🤖 **[CLAUDE.md](CLAUDE.md)** — guia para agentes Claude que forem alterar o projeto
-- 📑 [Índice completo](docs/README.md)
+- 📋 **[Planejamento do SaaS](docs/saas/planejamento.md)** — decisões de produto e fases
+- 🏗️ **[Arquitetura do SaaS](docs/saas/arquitetura.md)** — banco, rotas, autenticação, cobrança, deploy
+- 📘 **[Manual do Usuário](docs/manual-do-usuario.md)** — para clientes e operadores
+- 🛠️ **[Documentação Técnica](docs/documentacao-tecnica.md)** — regra de jogo, socket, telão, telas
+- 🤖 **[CLAUDE.md](CLAUDE.md)** — guia para agentes Claude
 
 ## Tecnologias
 
-Node.js 22+ · Express 5 · Socket.IO 4 · HTML/CSS/JavaScript puro (sem build) ·
-testes com `node:test` nativo.
+Node.js 22+ · Express 5 · Socket.IO 4 · PostgreSQL · HTML/CSS/JavaScript puro
+(sem build) · Asaas (cobrança) · testes com `node:test`.
 
-## Instalação rápida
-
-```bash
-# Linux (instala e registra o serviço systemd "placar-clube")
-bash setup.sh
-
-# Windows (PowerShell)
-.\setup.ps1
-```
-
-### Manual
+## Desenvolvimento
 
 ```bash
-git clone https://github.com/GustAlvesG/placar-clube.git
-cd placar-clube
 npm install
-cp .env.example .env    # opcional: integração com a API do clube
-npm start               # ou: npm run dev (recarga automática)
+cp .env.example .env
+npm run db      # terminal 1: Postgres embutido (porta 5433), sem Docker
+npm run dev     # terminal 2: http://localhost:4000 (migra e cria o superadmin do .env)
+npm test        # Postgres descartável + todos os testes
 ```
 
-Sem `.env` preenchido o sistema funciona em **modo manual** (sem súmula).
+## Produção
 
-## Telas
-
-O servidor escuta na porta **4000**, em todas as interfaces de rede.
-
-| Tela | Endereço |
-|---|---|
-| Telão | `http://<ip-do-servidor>:4000/` |
-| Controle (abre em Preparar) | `http://<ip-do-servidor>:4000/controle/` |
-| Configuração | `http://<ip-do-servidor>:4000/controle/configuracao.html` |
-| Controle (endereço direto) | `http://<ip-do-servidor>:4000/controle/controle.html` |
-| Mídia (vídeos, slides, patrocinadores) | `http://<ip-do-servidor>:4000/controle/controle_anuncios.html` |
-| Placar simples (só números) | `http://<ip-do-servidor>:4000/static.html` |
-| Placar neutro, claro ou escuro (só pela URL) | `http://<ip-do-servidor>:4000/placar-neutro.html` |
-
-## Scripts
-
-```bash
-npm start            # produção
-npm run dev          # desenvolvimento (nodemon)
-npm test             # testes (node:test)
-npm run test:watch   # testes em modo watch
-```
-
-## Estrutura
-
-```
-server.js          transporte: Express + Socket.IO, estado do jogo, uploads, integração
-gameLogic.js       regras do jogo (funções puras, testáveis)
-placarApi.js       cliente HTTP da API do clube (Laravel)
-placarEventos.js   fila de eventos da súmula (uuid, sequência, estorno, lote)
-env.js             leitura do .env
-public/            telão, telas de controle, arte e mídia
-test/              testes unitários
-docs/              documentação
-```
-
-## Licença
-
-ISC — dúvidas e bugs: [issues no GitHub](https://github.com/GustAlvesG/placar-clube/issues).
+Docker na VPS ArtZan, atrás do Caddy "edge": `docker-compose.prod.yml`,
+`deploy/` e `.env.production.example`. Passo a passo na
+[arquitetura](docs/saas/arquitetura.md#7-deploy-vps-artzan).
