@@ -4,4 +4,6 @@ public/patrocinadores/*
 public/videos/*
 public/slides/*
 .env
-CLAUDE.md
+CLAUDE.mddados/
+.pgdata/
+.env.production

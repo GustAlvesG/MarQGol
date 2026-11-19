@@ -1,5 +1,5 @@
 {
-    "watch": ["server.js", "gameLogic.js"],
-    "ext": "js",
-    "ignore": ["public/", "test/"]
+    "watch": ["server.js", "gameLogic.js", "placarEventos.js", "src/"],
+    "ext": "js,sql",
+    "ignore": ["public/", "test/", "dados/", ".pgdata/"]
 }
