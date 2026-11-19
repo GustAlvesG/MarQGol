@@ -174,7 +174,7 @@
 
         el.innerHTML = `
         ${APP.tituloPagina('Mídia', 'Comerciais, slides e patrocinadores valem para todos os seus placares.')}
-        ${permitido ? '' : `<div class="aviso-caixa">${ic('lock')}<div><b>Seu plano não inclui comerciais, slides e patrocinadores.</b> Troque de plano em Assinatura para enviar arquivos. Os arquivos já enviados continuam listados abaixo e podem ser apagados.</div></div>`}
+        ${permitido ? '' : `<div class="aviso-caixa">${ic('lock')}<div><b>Seu plano não inclui comerciais, slides e patrocinadores.</b> Inclua a mídia no seu plano em Assinatura para enviar arquivos. Os arquivos já enviados continuam listados abaixo e podem ser apagados.</div></div>`}
         <div class="aviso-caixa info">${ic('info')}<div>Aqui você só envia e organiza os arquivos. Para <b>tocar</b> um comercial ou os slides durante o jogo, use a aba <b>Telão</b> no controle do placar.</div></div>
         <div id="midia-uso"></div>
         <div id="midia-progresso"></div>

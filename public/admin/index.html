@@ -12,9 +12,9 @@
 <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
-<!-- Painel do dono do SaaS: clientes, planos, limites, status e auditoria.
+<!-- Painel do dono do SaaS: clientes, tabela de preços, limites, status e auditoria.
      Single page; a aba atual fica no hash (#visao, #clientes, #cliente/<id>,
-     #planos, #auditoria). -->
+     #precos, #equipe, #auditoria). -->
 <header class="topo adm-topo">
     <div class="topo-esq">
         <a class="marca" href="#visao" aria-label="MarQGol — painel de gestão">
@@ -25,7 +25,7 @@
     <nav class="abas" aria-label="Seções">
         <a class="aba" href="#visao" data-aba="visao"></a>
         <a class="aba" href="#clientes" data-aba="clientes"></a>
-        <a class="aba" href="#planos" data-aba="planos"></a>
+        <a class="aba" href="#precos" data-aba="precos"></a>
         <a class="aba" href="#equipe" data-aba="equipe"></a>
         <a class="aba" href="#auditoria" data-aba="auditoria"></a>
     </nav>
@@ -41,6 +41,7 @@
 
 <script src="/comum/ui.js"></script>
 <script src="/comum/marq.js"></script>
+<script src="/comum/montador.js"></script>
 <script src="/admin/admin.js"></script>
 </body>
 </html>

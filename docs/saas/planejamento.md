@@ -253,3 +253,14 @@ liga o autocadastro e a cobrança automática.
 | Arte padrão neutra | Produzida no próprio projeto (SVG) |
 | Hospedagem | VPS Hostinger com Docker, compartilhada — segue o contrato de deploy do `CLAUDE.md` (edge Caddy, rede `edge`, script `site`) |
 | Súmula/estatísticas públicas | **Fora do escopo** — outro app vai se integrar depois (deixar a API/estrutura de dados preparada) |
+
+## 10. Plano on demand (decisão de 19/11/2026)
+
+Os planos fixos (Básico, Profissional, Arena) saíram. Cada cliente monta o plano:
+
+- **Placares**: preço por placar; cada placar traz uma cota de jogos em aberto e de armazenamento.
+- **Usuários**: pacotes de 10; o primeiro pacote vem incluso.
+- **Recursos especiais** (comerciais/slides/patrocinadores, vídeo do atleta, arte própria): valor fixo por conta.
+- Preços e cotas numa tabela única editada no painel. O valor do cliente fica congelado na contratação (ou negociado pelo painel); mudar a tabela vale para novos clientes e para quem mudar a composição.
+- No site há um teto de autoatendimento (placares e pacotes); acima disso, venda pelo painel.
+

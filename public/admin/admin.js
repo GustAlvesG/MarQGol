@@ -4,7 +4,8 @@
 //   #visao                 indicadores gerais + revisão de status
 //   #clientes[?status=x]   lista com busca e filtro; "Novo cliente"
 //   #cliente/<id>          detalhe: dados, plano, status, limites, arte...
-//   #planos                planos de assinatura (criar/editar)
+//   #precos                tabela de preços do plano on demand
+//   #equipe                superadmins
 //   #auditoria[?cliente=x] trilha de auditoria
 //
 // Toda chamada usa MARQ.api (cabeçalho X-MarQ). Todo texto vindo da API passa
@@ -41,7 +42,8 @@
     const ACOES = {
         cliente_criado: 'Cliente criado', cliente_alterado: 'Cliente alterado', cliente_excluido: 'Cliente excluído',
         entrar_como: 'Entrou como cliente', acesso_reenviado: 'Acesso reenviado', plano_criado: 'Plano criado',
-        plano_alterado: 'Plano alterado', arte_alterada: 'Arte alterada', status_automatico: 'Status automático',
+        plano_alterado: 'Plano alterado', composicao_alterada: 'Plano alterado', precos_alterados: 'Tabela de preços alterada',
+        arte_alterada: 'Arte alterada', status_automatico: 'Status automático',
         aviso_fim_teste: 'Aviso de fim do teste', cadastro: 'Cadastro pelo site', assinatura: 'Assinatura',
         cancelamento: 'Cancelamento', tela_pareada: 'Tela pareada', zerar_tudo: 'Placar zerado',
         conta_alterada: 'Conta alterada', placar_criado: 'Placar criado', placar_alterado: 'Placar alterado',
@@ -51,6 +53,7 @@
     };
     const NOME_CAMPO = {
         nome: 'nome', email: 'e-mail', telefone: 'telefone', documento: 'documento', plano_id: 'plano', status: 'status',
+        composicao: 'plano', valor_mensal_centavos: 'valor mensal',
         teste_ate: 'fim do teste', limites_extra: 'limites', observacoes: 'observações', inadimplente_desde: 'inadimplência'
     };
     const NOME_SLOT = {
@@ -129,7 +132,10 @@
         if (d.de && d.para) partes.push(`${ROTULO_STATUS[d.de] || d.de} → ${ROTULO_STATUS[d.para] || d.para}`);
         for (const [k, v] of Object.entries(d)) {
             if (k === 'de' || k === 'para') continue;
-            if (k === 'campos' && Array.isArray(v)) { partes.push('alterou: ' + v.map(x => NOME_CAMPO[x] || x).join(', ')); continue; }
+            if (k === 'campos' && Array.isArray(v)) { if (v.length) partes.push('alterou: ' + v.map(x => NOME_CAMPO[x] || x).join(', ')); continue; }
+            // `valor` (plano on demand) vem em reais na auditoria.
+            if (k === 'valor' && Number.isFinite(Number(v))) { partes.push(`${MARQ.dinheiro(Math.round(Number(v) * 100))}/mês`); continue; }
+            if (k === 'preco_negociado') { if (v) partes.push('preço negociado'); continue; }
             const val = Array.isArray(v) ? v.join(', ') : (v && typeof v === 'object') ? JSON.stringify(v) : String(v);
             partes.push(`${k}: ${val}`);
         }
@@ -150,6 +156,8 @@
 
     // Folha (diálogo) com formulário. `aoEnviar(form)` pode lançar: a mensagem
     // aparece dentro da folha e ela continua aberta (não perde o que foi digitado).
+    // Devolver MANTER_ABERTA também mantém a folha (ex.: confirmação recusada).
+    const MANTER_ABERTA = Symbol('manter');
     function abrirFolha({ titulo, corpo, sim = 'Salvar', larga = false, perigo = false, aoAbrir, aoEnviar }) {
         return new Promise((resolve) => {
             const veu = document.createElement('div');
@@ -170,7 +178,11 @@
             form.addEventListener('submit', async (ev) => {
                 ev.preventDefault();
                 erro.hidden = true; btn.disabled = true;
-                try { const r = await aoEnviar(form); fechar(r === undefined ? true : r); }
+                try {
+                    const r = await aoEnviar(form);
+                    if (r === MANTER_ABERTA) { btn.disabled = false; return; }
+                    fechar(r === undefined ? true : r);
+                }
                 catch (e) { erro.textContent = e.message; erro.hidden = false; erro.scrollIntoView({ block: 'nearest' }); btn.disabled = false; }
             });
             document.addEventListener('keydown', tecla);
@@ -245,12 +257,32 @@
     let geracao = 0;            // descarta respostas de telas já abandonadas
     const filtroClientes = { busca: '', status: '' };
     let filtroAuditoria = '';
-    let cachePlanos = null;     // { planos, recursos }
     let EU = null;              // /api/auth/eu (emailAtivo decide convite x senha)
 
-    async function carregarPlanos(forcar = false) {
-        if (!cachePlanos || forcar) cachePlanos = await api('GET', '/api/admin/planos');
-        return cachePlanos;
+    // Tabela de preços do plano on demand: { precos, recursos, clientes }.
+    const carregarPrecos = () => api('GET', '/api/admin/precos');
+
+    // Limites "do plano" que a composição dá (espelha limitesDaComposicao em
+    // src/limites.js). Só para mostrar ao lado do ajuste individual.
+    function limitesDaComposicao(comp, precos) {
+        const c = MONTADOR.normalizar(comp, precos, false);
+        return {
+            max_placares: c.placares,
+            max_jogos_abertos: c.placares * precos.jogos_por_placar,
+            max_usuarios: (1 + c.pacotes_usuarios_extras) * precos.usuarios_por_pacote,
+            max_armazenamento_mb: c.placares * precos.armazenamento_mb_por_placar,
+            esportes: Object.keys(ESPORTES),
+            recursos: c.recursos
+        };
+    }
+
+    // Campo "Valor negociado (R$/mês)": vazio = preço de tabela (null).
+    function lerValorNegociado(campo) {
+        const v = campo.value.trim();
+        if (!v) return null;
+        const n = lerPreco(v);
+        if (!Number.isFinite(n) || n < 0) throw new Error('Valor negociado inválido. Use, por exemplo, 149,90 — ou deixe vazio para usar o preço de tabela.');
+        return n;
     }
 
     function lerHash() {
@@ -278,7 +310,7 @@
                 if (q.has('status')) filtroClientes.status = q.get('status');
                 await telaClientes(vivo);
             } else if (tela === 'cliente' && Number(arg)) await telaCliente(Number(arg), vivo);
-            else if (tela === 'planos') await telaPlanos(vivo);
+            else if (tela === 'precos') await telaPrecos(vivo);
             else if (tela === 'equipe') await telaEquipe(vivo);
             else if (tela === 'auditoria') {
                 if (q.has('cliente')) filtroAuditoria = q.get('cliente');
@@ -303,7 +335,7 @@
             <div class="secao-cab"><div><h1>Visão geral</h1><p>Como está a base de clientes agora.</p></div>
                 <button type="button" class="btn" id="btn-atualizar">${ic('refresh')} Atualizar</button></div>
             <div class="kpis">
-                ${kpi('Receita mensal (MRR)', 'card', MARQ.dinheiro(ind.receita_mensal_centavos), { classe: 'destaque', det: 'Soma dos planos de clientes ativos e inadimplentes' })}
+                ${kpi('Receita mensal (MRR)', 'card', MARQ.dinheiro(ind.receita_mensal_centavos), { classe: 'destaque', det: 'Soma do valor mensal contratado dos clientes ativos e inadimplentes' })}
                 ${kpi('Jogos ao vivo', 'tv', ind.jogos_ao_vivo, { classe: ind.jogos_ao_vivo ? 'ok' : '', det: 'Agora, em todos os clientes' })}
                 ${kpi('Jogos em 30 dias', 'calendar', ind.jogos_30_dias, { det: 'Encerrados nos últimos 30 dias' })}
             </div>
@@ -387,11 +419,12 @@
             return;
         }
         caixa.innerHTML = `<table class="tabela"><thead><tr>
-                <th>Cliente</th><th>Status</th><th>Plano</th><th>Uso</th><th>Fim do teste</th><th>Último acesso</th>
+                <th>Cliente</th><th>Status</th><th>Plano</th><th class="num">Mensal</th><th>Uso</th><th>Fim do teste</th><th>Último acesso</th>
             </tr></thead><tbody>${lista.map(c => `<tr class="clicavel" data-id="${Number(c.id)}" tabindex="0">
                 <td class="princ"><b>${esc(c.nome)}</b><span>${esc(c.email)}</span></td>
                 <td>${tagStatus(c.status)}</td>
-                <td class="nw">${esc(c.plano_nome || '—')}${c.tem_limites_extra ? ` <span class="ic-extra" title="Tem limites individuais">${ic('star')}</span>` : ''}</td>
+                <td class="plano-resumo">${esc(c.plano_resumo || '—')}${c.tem_limites_extra ? ` <span class="ic-extra" title="Tem limites individuais">${ic('star')}</span>` : ''}</td>
+                <td class="num">${c.valor_mensal_centavos == null ? '<span class="fraco">—</span>' : esc(MARQ.dinheiro(c.valor_mensal_centavos))}</td>
                 <td><span class="uso-mini">
                     <span title="Placares ativos">${ic('tv')}<b>${Number(c.uso.placares)}</b></span>
                     <span title="Jogos em aberto (agendados ou ao vivo)">${ic('calendar')}<b>${Number(c.uso.jogos_abertos)}</b></span>
@@ -401,21 +434,51 @@
             </tr>`).join('')}</tbody></table>`;
     }
 
+    // Bloco do plano on demand nas folhas (novo cliente, alterar plano):
+    // montador sem o teto do autoatendimento + valor negociado opcional.
+    const blocoPlano = () => `
+        <div class="inteiro"><span class="rotulo">Plano</span><div data-montador></div></div>
+        <div class="inteiro">
+            <label class="rotulo" for="in-valor-negociado">Valor negociado (R$/mês)</label>
+            <div class="linha-campo">
+                <input class="campo" id="in-valor-negociado" name="valor_negociado" inputmode="decimal" placeholder="Vazio = preço de tabela" autocomplete="off">
+                <button type="button" class="btn" data-usar-tabela>Usar preço de tabela</button>
+            </div>
+            <span class="ajuda" data-total-tabela></span>
+        </div>`;
+    function ligarPlano(f, precos, composicao) {
+        const ajuda = f.querySelector('[data-total-tabela]');
+        const campo = f.elements.valor_negociado;
+        const mostrar = (p) => {
+            const v = campo.value.trim();
+            const n = v ? lerPreco(v) : NaN;
+            ajuda.innerHTML = `Preço de tabela desta composição: <b>${esc(MARQ.dinheiro(p.total))}/mês</b>. ` +
+                (!v ? 'Campo vazio: o cliente paga o preço de tabela.'
+                    : Number.isFinite(n) && n !== p.total ? `O cliente vai pagar <b class="sobrescrito">${esc(MARQ.dinheiro(n))}/mês</b> (negociado).`
+                    : 'Valor igual ao de tabela.');
+        };
+        const m = MONTADOR.criar(f.querySelector('[data-montador]'), {
+            tabela: precos, composicao: composicao || { placares: 1 }, teto: false, aoMudar: (_c, p) => mostrar(p)
+        });
+        campo.addEventListener('input', () => mostrar(m.preco()));
+        f.querySelector('[data-usar-tabela]').addEventListener('click', () => { campo.value = ''; mostrar(m.preco()); campo.focus(); });
+        mostrar(m.preco());
+        return m;
+    }
+
     async function novoCliente() {
         let dados;
-        try { dados = await carregarPlanos(true); } catch (e) { return avisar('Não foi possível carregar os planos', e.message); }
-        const planos = dados.planos.filter(p => p.ativo);
-        if (!planos.length) return avisar('Nenhum plano ativo', 'Crie ou ative um plano na aba Planos antes de cadastrar um cliente.');
-        const corpo = `<p>Cadastro de uma venda feita por você. O primeiro placar (“Quadra 1”) já é criado. O administrador entra com o e-mail e a senha definidos aqui (ou recebe um convite por e-mail, se o SMTP estiver configurado).</p>
+        try { dados = await carregarPrecos(); } catch (e) { return avisar('Não foi possível carregar a tabela de preços', e.message); }
+        const precos = dados.precos;
+        let montador = null;
+        const corpo = `<p>Cadastro de uma venda feita por você. Os placares (“Quadra 1”, “Quadra 2”…) já são criados. O administrador entra com o e-mail e a senha definidos aqui (ou recebe um convite por e-mail, se o SMTP estiver configurado).</p>
             <div class="grade-form">
                 <label class="inteiro"><span class="rotulo">Nome do cliente (clube, escola…)</span><input class="campo" name="nome" required maxlength="120"></label>
                 <label><span class="rotulo">Nome do administrador</span><input class="campo" name="nomeAdmin" maxlength="120" placeholder="Opcional"></label>
                 <label><span class="rotulo">E-mail do administrador</span><input class="campo" name="email" type="email" required></label>
                 <label><span class="rotulo">CPF ou CNPJ</span><input class="campo" name="documento" inputmode="numeric" placeholder="Opcional"></label>
                 <label><span class="rotulo">Telefone</span><input class="campo" name="telefone" inputmode="tel" placeholder="Opcional"></label>
-                <label class="inteiro"><span class="rotulo">Plano</span><select class="campo" name="plano_id">
-                    ${planos.map(p => `<option value="${Number(p.id)}" data-dias="${Number(p.dias_teste)}">${esc(p.nome)} — ${esc(MARQ.dinheiro(p.preco_centavos))}/mês${p.publico ? '' : ' (sob medida)'}</option>`).join('')}
-                </select></label>
+                ${blocoPlano()}
                 <label><span class="rotulo">Status inicial</span><select class="campo" name="status">
                     <option value="teste">Em teste</option><option value="ativo">Ativo</option></select></label>
                 <label data-teste><span class="rotulo">Fim do teste</span><input class="campo" name="teste_ate" type="date"></label>
@@ -426,23 +489,23 @@
             titulo: 'Novo cliente', corpo, sim: 'Cadastrar', larga: true,
             aoAbrir: (f) => {
                 ligarAcesso(f);
-                const atualizarData = () => {
-                    const dias = Number(f.plano_id.selectedOptions[0].dataset.dias) || 14;
-                    f.teste_ate.value = paraInputData(somarDias(new Date(), dias));
-                };
+                montador = ligarPlano(f, precos, { placares: 1 });
+                const dias = Number.isFinite(Number(precos.dias_teste)) ? Number(precos.dias_teste) : 14;
+                f.teste_ate.value = paraInputData(somarDias(new Date(), dias));
                 const atualizarStatus = () => { f.querySelector('[data-teste]').hidden = f.status.value !== 'teste'; };
-                f.plano_id.addEventListener('change', atualizarData);
                 f.status.addEventListener('change', atualizarStatus);
-                atualizarData(); atualizarStatus();
+                atualizarStatus();
             },
             aoEnviar: async (f) => {
                 if (!f.nome.value.trim()) throw new Error('Informe o nome do cliente.');
                 if (!f.email.value.trim()) throw new Error('Informe o e-mail do administrador.');
                 const corpoReq = {
                     nome: f.nome.value.trim(), nomeAdmin: f.nomeAdmin.value.trim(), email: f.email.value.trim(),
-                    documento: f.documento.value, telefone: f.telefone.value, plano_id: Number(f.plano_id.value),
+                    documento: f.documento.value, telefone: f.telefone.value, composicao: montador.composicao(),
                     status: f.status.value, observacoes: f.observacoes.value
                 };
+                const valor = lerValorNegociado(f.valor_negociado);
+                if (valor !== null) corpoReq.valor_mensal_centavos = valor;
                 if (corpoReq.status === 'teste') corpoReq.teste_ate = deInputData(f.teste_ate.value);
                 if (usaSenha(f)) corpoReq.senhaAdmin = lerSenha(f, 'senhaAdmin');
                 const c = await api('POST', '/api/admin/clientes', corpoReq);
@@ -460,16 +523,19 @@
     // ================================================================ DETALHE DO CLIENTE
     async function telaCliente(id, vivo) {
         conteudo.innerHTML = `<a class="voltar" href="#clientes">${ic('voltar')} Clientes</a>${carregando()}`;
-        const [d, planosResp, arte] = await Promise.all([
+        const [d, arte] = await Promise.all([
             api('GET', '/api/admin/clientes/' + id),
-            carregarPlanos(true),
             api('GET', `/api/admin/clientes/${id}/arte`).catch(e => ({ erro: e.message }))
         ]);
         if (!vivo()) return;
         const c = d.cliente;
         document.title = `${c.nome} — MarQGol`;
-        const planoAtual = d.plano;
-        const recursos = planosResp.recursos || {};
+        const plano = d.plano || {};
+        const recursos = d.recursos || {};
+        // O valor contratado pode diferir da tabela de hoje: congelado na
+        // contratação (a tabela mudou depois) ou negociado por você.
+        const valor = c.valor_mensal_centavos == null ? null : Number(c.valor_mensal_centavos);
+        const difereTabela = valor !== null && Number.isFinite(Number(plano.total)) && valor !== Number(plano.total);
 
         conteudo.innerHTML = `
             <div class="cab-cliente">
@@ -479,7 +545,7 @@
                     <div class="meta">
                         <span>Identificador <code>${esc(c.slug)}</code></span>
                         <span>Cliente desde ${esc(MARQ.data(c.criado_em))}</span>
-                        <span>Plano <b>${esc(planoAtual ? planoAtual.nome : '—')}</b></span>
+                        <span>Plano <b>${esc(plano.resumo || '—')}</b></span>
                         ${c.asaas_assinatura_id ? `<span>Assinatura Asaas <code>${esc(c.asaas_assinatura_id)}</code></span>` : '<span>Sem assinatura no Asaas</span>'}
                         ${c.proximo_vencimento ? `<span>Próximo vencimento ${esc(dataCurta(c.proximo_vencimento))}</span>` : ''}
                     </div>
@@ -507,14 +573,20 @@
                     <div class="cartao-cab"><h2>${ic('card')} Plano e status</h2></div>
                     <div class="subbloco">
                         <span class="rotulo">Plano</span>
-                        <div class="linha-campo">
-                            <select class="campo" id="sel-plano" aria-label="Plano">
-                                ${planosResp.planos.map(p => `<option value="${Number(p.id)}" ${p.id === c.plano_id ? 'selected' : ''}>${esc(p.nome)} — ${esc(MARQ.dinheiro(p.preco_centavos))}/mês${p.ativo ? '' : ' (inativo)'}</option>`).join('')}
-                                ${c.plano_id ? '' : '<option value="" selected>— sem plano —</option>'}
-                            </select>
-                            <button type="button" class="btn" id="btn-plano">Trocar</button>
+                        <div class="plano-atual">
+                            <div class="plano-txt">
+                                <b>${esc(plano.resumo || '—')}</b>
+                                ${(plano.itens || []).length ? `<ul class="plano-itens">${plano.itens.map(i => `<li><span>${esc(i.rotulo)}</span><span>${esc(MARQ.dinheiro(i.subtotal))}</span></li>`).join('')}</ul>` : ''}
+                            </div>
+                            <button type="button" class="btn" id="btn-plano">${ic('edit')} Alterar plano</button>
                         </div>
-                        <p class="ajuda">${c.asaas_assinatura_id ? 'Este cliente tem assinatura no Asaas: ao trocar, o valor é atualizado lá também.' : 'Sem assinatura no Asaas: a troca muda só os limites e recursos.'}</p>
+                        <div class="valor-mensal">
+                            <span class="rotulo">Valor mensal</span>
+                            <span class="valor">${valor === null ? '—' : esc(MARQ.dinheiro(valor))}<small>/mês</small></span>
+                            ${difereTabela ? `<span class="tag amarelo" title="O cliente paga um valor diferente da tabela de hoje">negociado/congelado</span>` : ''}
+                        </div>
+                        ${difereTabela ? `<p class="ajuda">Preço de tabela hoje: <b>${esc(MARQ.dinheiro(plano.total))}/mês</b>. O cliente continua pagando o valor contratado até você alterar o plano.</p>` : ''}
+                        <p class="ajuda">${c.asaas_assinatura_id ? 'Este cliente tem assinatura no Asaas: ao alterar o plano, o valor é atualizado lá também.' : 'Sem assinatura no Asaas: alterar o plano muda só os limites, recursos e o valor registrado.'}</p>
                     </div>
                     <div class="subbloco">
                         <span class="rotulo">Status</span>
@@ -673,18 +745,37 @@
         });
 
         // ---- Plano ----
-        conteudo.querySelector('#btn-plano').addEventListener('click', async (ev) => {
-            const novo = planosResp.planos.find(p => p.id === Number(conteudo.querySelector('#sel-plano').value));
-            if (!novo) return;
-            if (novo.id === c.plano_id) return toast('Esse já é o plano do cliente.');
-            const ok = await confirmar({
-                titulo: `Trocar para ${novo.nome}?`,
-                texto: `Novo valor: ${MARQ.dinheiro(novo.preco_centavos)}/mês. Os limites e recursos passam a ser os do novo plano (ajustes individuais continuam valendo).\n` +
-                    (c.asaas_assinatura_id ? 'O cliente tem assinatura no Asaas: o valor da assinatura será atualizado lá também.' : 'Sem assinatura no Asaas: nada muda na cobrança.'),
-                sim: 'Trocar plano'
+        conteudo.querySelector('#btn-plano').addEventListener('click', async () => {
+            let montador = null;
+            const salvo = await abrirFolha({
+                titulo: `Alterar plano — ${c.nome}`, sim: 'Salvar plano', larga: true,
+                corpo: `<p>Monte os itens do plano. Os limites e recursos passam a ser os da nova composição (ajustes individuais continuam valendo).
+                    ${c.asaas_assinatura_id ? ' <b>Este cliente tem assinatura no Asaas: o valor da assinatura será atualizado lá.</b>' : ''}</p>
+                    <div class="grade-form">${blocoPlano()}</div>`,
+                aoAbrir: (f) => {
+                    // Valor diferente da tabela de hoje (negociado ou congelado) já vem preenchido.
+                    if (difereTabela) f.elements.valor_negociado.value = precoParaCampo(valor);
+                    montador = ligarPlano(f, d.precos, c.composicao || { placares: 1 });
+                },
+                aoEnviar: async (f) => {
+                    const composicao = montador.composicao();
+                    const negociado = lerValorNegociado(f.elements.valor_negociado);
+                    const total = montador.preco().total;
+                    const novoValor = negociado === null ? total : negociado;
+                    if (c.asaas_assinatura_id && novoValor <= 0) throw new Error('Com assinatura no Asaas o valor mensal precisa ser maior que zero.');
+                    const ok = await confirmar({
+                        titulo: 'Alterar o plano?',
+                        texto: `${MONTADOR.resumo(composicao, d.precos)}\n` +
+                            `Novo valor: ${MARQ.dinheiro(novoValor)}/mês${negociado === null ? ' (preço de tabela)' : negociado !== total ? ` (negociado; tabela: ${MARQ.dinheiro(total)})` : ''}.` +
+                            (valor !== null ? ` Hoje: ${MARQ.dinheiro(valor)}/mês.` : '') + '\n' +
+                            (c.asaas_assinatura_id ? 'O cliente tem assinatura no Asaas: o valor da assinatura será alterado lá também.' : 'Sem assinatura no Asaas: nada muda na cobrança.'),
+                        sim: 'Alterar plano'
+                    });
+                    if (!ok) return MANTER_ABERTA;
+                    await patch({ composicao, valor_mensal_centavos: negociado });
+                }
             });
-            if (!ok) return;
-            await comBotao(ev.currentTarget, async () => { await patch({ plano_id: novo.id }); toast('Plano trocado'); recarregar(); });
+            if (salvo) { toast('Plano alterado'); recarregar(); }
         });
 
         // ---- Status ----
@@ -743,7 +834,7 @@
             });
         });
 
-        desenharLimites(conteudo.querySelector('#cartao-limites'), d, planoAtual, recursos, patch, recarregar);
+        desenharLimites(conteudo.querySelector('#cartao-limites'), d, limitesDaComposicao(c.composicao, d.precos), recursos, patch, recarregar);
         desenharArte(conteudo.querySelector('#cartao-arte'), c.id, arte);
     }
 
@@ -793,6 +884,7 @@
     }
 
     // ---- Limites individuais (limites_extra) ----
+    // `plano` = limites que a composição dá (limitesDaComposicao).
     function desenharLimites(caixa, d, plano, recursos, patch, recarregar) {
         const extra = d.cliente.limites_extra || {};
         const efetivo = d.limites || {};
@@ -810,7 +902,7 @@
 
         caixa.innerHTML = `
             <div class="cartao-cab"><div><h2>${ic('star')} Limites individuais</h2>
-                <p>Ajustes só para este cliente, por cima do plano. Campo vazio = usa o valor do plano.</p></div></div>
+                <p>Ajustes só para este cliente, por cima do plano. Os valores do plano vêm da composição (placares, pacotes de usuários e recursos contratados) e da tabela de preços. Campo vazio = usa o valor do plano.</p></div></div>
             <div class="tabela-caixa"><table class="tabela tabela-limites"><thead><tr>
                 <th>Limite</th><th class="num">Plano</th><th>Individual</th><th>Uso × limite efetivo</th>
             </tr></thead><tbody>
@@ -971,89 +1063,133 @@
         }));
     }
 
-    // ================================================================ PLANOS
-    async function telaPlanos(vivo) {
-        document.title = 'Planos — MarQGol';
-        conteudo.innerHTML = `<div class="secao-cab"><div><h1>Planos</h1></div></div>${carregando()}`;
-        const { planos, recursos } = await carregarPlanos(true);
-        if (!vivo()) return;
-        conteudo.innerHTML = `
-            <div class="secao-cab"><div><h1>Planos</h1><p>Limites e recursos de cada assinatura. Planos públicos aparecem no site e no cadastro; os outros são sob medida.</p></div>
-                <button type="button" class="btn ok" id="btn-novo-plano">${ic('plus')} Novo plano</button></div>
-            ${planos.length ? `<div class="planos-grade">${planos.map(p => `
-                <article class="plano ${p.ativo ? '' : 'inativo'}">
-                    <div class="plano-cab"><div><h2>${esc(p.nome)}</h2>
-                        <div class="tags" style="margin-top:6px">
-                            ${p.ativo ? '' : '<span class="tag perigo">Inativo</span>'}
-                            ${p.publico ? '<span class="tag info">Público</span>' : '<span class="tag">Sob medida</span>'}
-                            <span class="tag">${plural(Number(p.clientes) || 0, 'cliente', 'clientes')}</span>
-                        </div></div>
-                        <button type="button" class="btn icone" data-editar="${Number(p.id)}" title="Editar plano" aria-label="Editar ${esc(p.nome)}">${ic('edit')}</button>
-                    </div>
-                    <div class="preco">${esc(MARQ.dinheiro(p.preco_centavos))} <small>/mês</small></div>
-                    ${p.descricao ? `<p class="desc">${esc(p.descricao)}</p>` : ''}
-                    <dl>
-                        ${CAMPOS.map(([k, rot]) => `<dt>${esc(rot)}</dt><dd>${esc(p[k])}</dd>`).join('')}
-                        <dt>Dias de teste</dt><dd>${esc(p.dias_teste)}</dd>
-                        <dt>Ordem</dt><dd>${esc(p.ordem)}</dd>
-                    </dl>
-                    <div class="tags">${(p.esportes || []).map(e => `<span class="tag">${esc(ESPORTES[e] || e)}</span>`).join('')}</div>
-                    <div class="tags">${Object.entries(recursos).map(([k, def]) => {
-                        const on = p.recursos && typeof p.recursos[k] === 'boolean' ? p.recursos[k] : def.padrao;
-                        return `<span class="tag ${on ? 'ok' : ''}" title="${esc(def.rotulo)}">${on ? '✓' : '✕'} ${esc(def.rotulo)}</span>`;
-                    }).join('')}</div>
-                </article>`).join('')}</div>` : '<div class="cartao"><div class="vazio">Nenhum plano. Crie o primeiro.</div></div>'}`;
-        conteudo.querySelector('#btn-novo-plano').addEventListener('click', () => editarPlano(null, recursos));
-        conteudo.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () =>
-            editarPlano(planos.find(p => p.id === Number(b.dataset.editar)), recursos)));
-    }
+    // ================================================================ PREÇOS
+    // Tabela única do plano on demand. Vale para novos cadastros e para quem
+    // alterar o plano depois; quem já é cliente continua pagando o valor
+    // contratado (valor_mensal_centavos congelado).
+    const gbTexto = (mb) => {
+        const n = Number(mb);
+        if (!Number.isFinite(n) || n <= 0) return '';
+        return n >= 1024 ? `≈ ${String(Math.round(n / 1024 * 10) / 10).replace('.', ',')} GB por placar` : `${n} MB por placar`;
+    };
 
-    async function editarPlano(plano, recursos) {
-        const p = plano || { nome: '', descricao: '', preco_centavos: 0, max_placares: 1, max_jogos_abertos: 10, max_usuarios: 3, max_armazenamento_mb: 1024, esportes: Object.keys(ESPORTES), recursos: {}, dias_teste: 14, publico: true, ativo: true, ordem: 0 };
-        const recOn = (k) => p.recursos && typeof p.recursos[k] === 'boolean' ? p.recursos[k] : recursos[k].padrao;
-        const corpo = `
-            ${plano && plano.clientes ? `<div class="aviso-caixa info" style="margin-bottom:12px">${ic('info')}<div>${plural(Number(plano.clientes), 'cliente usa', 'clientes usam')} este plano: novos limites valem na hora. Mudar o preço aqui <b>não</b> altera assinaturas já criadas no Asaas.</div></div>` : ''}
-            <div class="grade-form">
-                <label><span class="rotulo">Nome</span><input class="campo" name="nome" value="${esc(p.nome)}" maxlength="60" required></label>
-                <label><span class="rotulo">Preço mensal (R$)</span><input class="campo" name="preco" inputmode="decimal" value="${esc(precoParaCampo(p.preco_centavos))}"></label>
-                <label class="inteiro"><span class="rotulo">Descrição</span><textarea class="campo" name="descricao" maxlength="400" style="min-height:72px">${esc(p.descricao)}</textarea></label>
-                ${CAMPOS.map(([k, rot]) => `<label><span class="rotulo">${esc(rot)}</span><input class="campo" type="number" min="0" step="1" name="${k}" value="${esc(p[k])}"></label>`).join('')}
-                <label><span class="rotulo">Dias de teste</span><input class="campo" type="number" min="0" max="90" step="1" name="dias_teste" value="${esc(p.dias_teste)}"></label>
-                <label><span class="rotulo">Ordem (no site)</span><input class="campo" type="number" step="1" name="ordem" value="${esc(p.ordem)}"></label>
-                <div class="inteiro"><span class="rotulo">Esportes</span><div class="opcoes-linha">
-                    ${Object.entries(ESPORTES).map(([k, rot]) => `<label class="marcar"><input type="checkbox" name="esporte" value="${k}" ${(p.esportes || []).includes(k) ? 'checked' : ''}> ${rot}</label>`).join('')}
-                </div></div>
-                <div class="inteiro"><span class="rotulo">Recursos</span><div class="opcoes-linha">
-                    ${Object.entries(recursos).map(([k, def]) => `<label class="marcar"><input type="checkbox" name="recurso" value="${esc(k)}" ${recOn(k) ? 'checked' : ''}> ${esc(def.rotulo)}</label>`).join('')}
-                </div></div>
-                <div class="inteiro"><span class="rotulo">Visibilidade</span><div class="opcoes-linha">
-                    <label class="marcar"><input type="checkbox" name="publico" ${p.publico ? 'checked' : ''}> Público (aparece no site e no cadastro)</label>
-                    <label class="marcar"><input type="checkbox" name="ativo" ${p.ativo ? 'checked' : ''}> Ativo (pode ser escolhido)</label>
-                </div></div>
-            </div>`;
-        const salvo = await abrirFolha({
-            titulo: plano ? `Editar ${plano.nome}` : 'Novo plano', corpo, larga: true, sim: plano ? 'Salvar plano' : 'Criar plano',
-            aoEnviar: async (f) => {
-                const preco = lerPreco(f.preco.value);
-                if (!Number.isFinite(preco) || preco < 0) throw new Error('Preço inválido. Use, por exemplo, 49,90.');
-                const corpoReq = {
-                    nome: f.nome.value.trim(), descricao: f.descricao.value.trim(), preco_centavos: preco,
-                    dias_teste: Number(f.dias_teste.value), ordem: Number(f.ordem.value) || 0,
-                    esportes: [...f.querySelectorAll('[name=esporte]:checked')].map(i => i.value),
-                    recursos: Object.fromEntries(Object.keys(recursos).map(k => [k, !!f.querySelector(`[name=recurso][value="${k}"]`).checked])),
-                    publico: f.publico.checked, ativo: f.ativo.checked
-                };
-                if (!corpoReq.nome) throw new Error('Informe o nome do plano.');
-                if (!corpoReq.esportes.length) throw new Error('Escolha ao menos um esporte.');
-                for (const [k, rot] of CAMPOS) {
-                    const n = Number(f[k].value);
-                    if (f[k].value === '' || !Number.isInteger(n) || n < 0) throw new Error(`“${rot}” precisa ser um número inteiro (0 ou mais).`);
-                    corpoReq[k] = n;
-                }
-                return plano ? api('PUT', '/api/admin/planos/' + plano.id, corpoReq) : api('POST', '/api/admin/planos', corpoReq);
-            }
+    async function telaPrecos(vivo) {
+        document.title = 'Preços — MarQGol';
+        conteudo.innerHTML = `<div class="secao-cab"><div><h1>Preços</h1></div></div>${carregando()}`;
+        const { precos: p, recursos, clientes } = await carregarPrecos();
+        if (!vivo()) return;
+        const nClientes = Number(clientes) || 0;
+        const recPrecos = p.precos_recursos || {};
+        const reais = (nome, rot, centavos, ajuda = '') => `<label><span class="rotulo">${esc(rot)}</span>
+            <div class="campo-reais"><span>R$</span><input class="campo" name="${nome}" inputmode="decimal" value="${esc(precoParaCampo(centavos))}" autocomplete="off"></div>
+            ${ajuda ? `<span class="ajuda">${ajuda}</span>` : ''}</label>`;
+        const inteiro = (nome, rot, v, { min = 0, max = '', ajuda = '' } = {}) => `<label><span class="rotulo">${esc(rot)}</span>
+            <input class="campo" type="number" name="${nome}" min="${min}" ${max !== '' ? `max="${max}"` : ''} step="1" value="${esc(v)}">
+            ${ajuda ? `<span class="ajuda" ${ajuda === true ? `data-ajuda="${nome}"` : ''}>${ajuda === true ? '' : ajuda}</span>` : ''}</label>`;
+
+        conteudo.innerHTML = `
+            <div class="secao-cab"><div><h1>Preços</h1><p>Tabela do plano on demand: o cliente monta o plano com placares, usuários e recursos especiais.</p></div></div>
+            <div class="aviso-caixa info">${ic('info')}<div>Mudanças valem para <b>novos cadastros</b> e para clientes que <b>alterarem o plano</b> depois.
+                ${nClientes ? `Os ${plural(nClientes, 'cliente atual', 'clientes atuais')} continuam pagando o valor contratado.` : 'Clientes atuais continuam pagando o valor contratado.'}</div></div>
+            <form class="cartao" id="form-precos" novalidate>
+                <div class="subbloco">
+                    <h3>Itens do plano</h3>
+                    <div class="grade-3">
+                        ${reais('preco_placar', 'Preço por placar (mês)', p.preco_placar_centavos)}
+                        ${reais('preco_pacote', 'Pacote extra de usuários (mês)', p.preco_pacote_usuarios_centavos, 'O primeiro pacote vem incluído.')}
+                        ${inteiro('usuarios_por_pacote', 'Usuários por pacote', p.usuarios_por_pacote, { min: 1, max: 1000 })}
+                    </div>
+                </div>
+                <div class="subbloco">
+                    <h3>Recursos especiais</h3>
+                    <p class="ajuda">Valor fixo mensal por conta, independente da quantidade de placares.</p>
+                    <div class="grade-3">
+                        ${Object.entries(recursos).map(([k, def]) => reais('recurso_' + k, def.rotulo, recPrecos[k] || 0)).join('')}
+                    </div>
+                </div>
+                <div class="subbloco">
+                    <h3>Cotas por placar</h3>
+                    <div class="grade-3">
+                        ${inteiro('jogos_por_placar', 'Jogos em aberto por placar', p.jogos_por_placar, { ajuda: 'Agendados ou ao vivo.' })}
+                        ${inteiro('armazenamento_mb_por_placar', 'Armazenamento por placar (MB)', p.armazenamento_mb_por_placar, { ajuda: true })}
+                    </div>
+                </div>
+                <div class="subbloco">
+                    <h3>Teste e autoatendimento</h3>
+                    <div class="grade-3">
+                        ${inteiro('dias_teste', 'Dias de teste', p.dias_teste, { max: 90, ajuda: 'De 0 a 90.' })}
+                        ${inteiro('max_placares_autoatendimento', 'Máx. de placares no site', p.max_placares_autoatendimento, { min: 1, ajuda: 'Acima disso, só por você.' })}
+                        ${inteiro('max_pacotes_autoatendimento', 'Máx. de pacotes extras no site', p.max_pacotes_autoatendimento, { ajuda: 'Pacotes de usuários.' })}
+                    </div>
+                </div>
+                <div class="subbloco">
+                    <div class="exemplo-preco" id="exemplo-preco" aria-live="polite"></div>
+                    <div class="linha">
+                        <button type="submit" class="btn ok">${ic('save')} Salvar preços</button>
+                        ${p.atualizado_em ? `<span class="ajuda">Última alteração: ${esc(MARQ.dataHora(p.atualizado_em))}</span>` : ''}
+                    </div>
+                </div>
+            </form>`;
+
+        const f = conteudo.querySelector('#form-precos');
+        const RECS = Object.keys(recursos);
+        // estrito = valida e lança (salvar); senão, tolera campo inválido (exemplo ao vivo).
+        function lerTabela(estrito) {
+            const reaisCampo = (nome, rot) => {
+                const n = lerPreco(f.elements[nome].value);
+                if (Number.isFinite(n) && n >= 0) return n;
+                if (estrito) throw new Error(`“${rot}”: valor inválido. Use, por exemplo, 49,90.`);
+                return 0;
+            };
+            const inteiroCampo = (nome, rot, min, max) => {
+                const v = f.elements[nome].value.trim();
+                const n = Number(v);
+                if (v !== '' && Number.isInteger(n) && n >= min && (max === undefined || n <= max)) return n;
+                if (estrito) throw new Error(`“${rot}” precisa ser um número inteiro${max !== undefined ? ` de ${min} a ${max}` : ` (${min} ou mais)`}.`);
+                return Math.max(min, Number.isFinite(n) ? Math.round(n) : min);
+            };
+            return {
+                preco_placar_centavos: reaisCampo('preco_placar', 'Preço por placar'),
+                preco_pacote_usuarios_centavos: reaisCampo('preco_pacote', 'Pacote extra de usuários'),
+                usuarios_por_pacote: inteiroCampo('usuarios_por_pacote', 'Usuários por pacote', 1, 1000),
+                precos_recursos: Object.fromEntries(RECS.map(k => [k, reaisCampo('recurso_' + k, recursos[k].rotulo)])),
+                jogos_por_placar: inteiroCampo('jogos_por_placar', 'Jogos em aberto por placar', 0),
+                armazenamento_mb_por_placar: inteiroCampo('armazenamento_mb_por_placar', 'Armazenamento por placar', 0),
+                dias_teste: inteiroCampo('dias_teste', 'Dias de teste', 0, 90),
+                max_placares_autoatendimento: inteiroCampo('max_placares_autoatendimento', 'Máx. de placares no site', 1, 1000),
+                max_pacotes_autoatendimento: inteiroCampo('max_pacotes_autoatendimento', 'Máx. de pacotes extras no site', 0, 1000)
+            };
+        }
+        const exemplo = conteudo.querySelector('#exemplo-preco');
+        const ajudaGb = f.querySelector('[data-ajuda="armazenamento_mb_por_placar"]');
+        function atualizarExemplo() {
+            const t = lerTabela(false);
+            const ex = (comp) => MARQ.dinheiro(MONTADOR.preco(comp, t).total);
+            exemplo.innerHTML = `${ic('info')}<div>
+                <span>Ex.: <b>1 placar</b> = ${esc(ex({ placares: 1 }))}/mês</span>
+                <span><b>2 placares + mídia</b> = ${esc(ex({ placares: 2, recursos: { midia: true } }))}/mês</span>
+                <span><b>3 placares + ${t.usuarios_por_pacote} usuários extras + todos os recursos</b> = ${esc(ex({ placares: 3, pacotes_usuarios_extras: 1, recursos: Object.fromEntries(RECS.map(k => [k, true])) }))}/mês</span></div>`;
+            if (ajudaGb) ajudaGb.textContent = gbTexto(f.elements.armazenamento_mb_por_placar.value);
+        }
+        f.addEventListener('input', atualizarExemplo);
+        atualizarExemplo();
+
+        f.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            await comBotao(f.querySelector('[type=submit]'), async () => {
+                const novo = lerTabela(true);
+                const ok = await confirmar({
+                    titulo: 'Salvar a tabela de preços?',
+                    texto: 'Os novos valores aparecem no site e valem para novos cadastros e para clientes que alterarem o plano.\n' +
+                        `Quem já é cliente${nClientes ? ` (${plural(nClientes, 'cliente', 'clientes')})` : ''} continua pagando o valor contratado; nenhuma assinatura no Asaas muda.`,
+                    sim: 'Salvar preços'
+                });
+                if (!ok) return;
+                await api('PUT', '/api/admin/precos', novo);
+                toast('Tabela de preços salva');
+                if (vivo()) rotear();
+            });
         });
-        if (salvo) { toast(plano ? 'Plano salvo' : 'Plano criado'); rotear(); }
     }
 
     // ================================================================ EQUIPE (superadmins)
@@ -1080,7 +1216,7 @@
         conteudo.querySelector('#btn-novo-sa').addEventListener('click', async () => {
             const criado = await abrirFolha({
                 titulo: 'Novo superadmin', sim: 'Criar',
-                corpo: `<p>Acesso total ao painel: clientes, planos, cobrança e “entrar como”. Dê só a quem é da sua equipe.</p>
+                corpo: `<p>Acesso total ao painel: clientes, preços, cobrança e “entrar como”. Dê só a quem é da sua equipe.</p>
                     <div class="grade-form">
                     <label><span class="rotulo">Nome</span><input class="campo" name="nome" maxlength="120" required></label>
                     <label><span class="rotulo">E-mail (login)</span><input class="campo" name="email" type="email" required autocomplete="off"></label>
@@ -1147,7 +1283,7 @@
 
     // ================================================================ INÍCIO
     async function iniciar() {
-        const rotulos = { visao: ['chart', 'Visão geral'], clientes: ['users', 'Clientes'], planos: ['card', 'Planos'], equipe: ['lock', 'Equipe'], auditoria: ['shield', 'Auditoria'] };
+        const rotulos = { visao: ['chart', 'Visão geral'], clientes: ['users', 'Clientes'], precos: ['card', 'Preços'], equipe: ['lock', 'Equipe'], auditoria: ['shield', 'Auditoria'] };
         document.querySelectorAll('.adm-topo .aba').forEach(a => { const [i, t] = rotulos[a.dataset.aba]; a.innerHTML = `${ic(i)} ${t}`; });
         document.getElementById('btn-sair').innerHTML = ic('logout');
         document.getElementById('btn-sair').addEventListener('click', async () => {

@@ -51,3 +51,33 @@ test('fimDoTeste aceita 0 dias (plano sem teste)', () => {
     assert.equal(lim.fimDoTeste(inicio, 0).toISOString(), inicio.toISOString());
     assert.equal(lim.fimDoTeste(inicio, undefined).toISOString().slice(0, 10), '2026-01-15');
 });
+
+const tabela = {
+    preco_placar_centavos: 8900, preco_pacote_usuarios_centavos: 1900, usuarios_por_pacote: 10,
+    precos_recursos: { midia: 2900, video_jogador: 1900, arte_propria: 4900 },
+    jogos_por_placar: 20, armazenamento_mb_por_placar: 2048, dias_teste: 14,
+    max_placares_autoatendimento: 20, max_pacotes_autoatendimento: 10
+};
+
+test('composição on demand: limites crescem por placar e o 1º pacote de usuários é incluso', () => {
+    const l = lim.limitesDaComposicao({ placares: 3, pacotes_usuarios_extras: 1, recursos: { arte_propria: true } }, tabela);
+    assert.equal(l.max_placares, 3);
+    assert.equal(l.max_jogos_abertos, 60);
+    assert.equal(l.max_armazenamento_mb, 6144);
+    assert.equal(l.max_usuarios, 20);
+    assert.deepEqual(l.recursos, { midia: false, video_jogador: false, arte_propria: true });
+});
+
+test('composição on demand: preço detalhado', () => {
+    const p = lim.precoDaComposicao({ placares: 2, pacotes_usuarios_extras: 2, recursos: { midia: true } }, tabela);
+    assert.equal(p.total, 2 * 8900 + 2 * 1900 + 2900);
+    assert.deepEqual(p.itens.map(i => i.chave), ['placares', 'usuarios', 'midia']);
+});
+
+test('composição on demand: entrada inválida vira o mínimo, teto só no autoatendimento', () => {
+    assert.deepEqual(lim.normalizarComposicao({ placares: 'x', pacotes_usuarios_extras: -3 }, tabela),
+        { placares: 1, pacotes_usuarios_extras: 0, recursos: { midia: false, video_jogador: false, arte_propria: false } });
+    assert.equal(lim.normalizarComposicao({ placares: 50 }, tabela).placares, 20);
+    assert.equal(lim.normalizarComposicao({ placares: 50 }, tabela, { teto: false }).placares, 50);
+    assert.equal(lim.resumoDaComposicao({ placares: 2, pacotes_usuarios_extras: 1, recursos: { midia: true } }, tabela), '2 placares · 20 usuários · mídia');
+});

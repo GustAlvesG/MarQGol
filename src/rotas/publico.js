@@ -1,14 +1,24 @@
-// Rotas públicas: saúde, planos da página de venda, cadastro, login,
+// Rotas públicas: saúde, tabela de preços da página de venda, cadastro, login,
 // confirmação de e-mail, convite e redefinição de senha.
 const express = require('express');
 const seg = require('../seguranca');
 const { ErroRegra } = require('../servicos/agenda');
+const limites = require('../limites');
 
-function planoPublico(p) {
+// Tabela de preços do plano on demand como as telas precisam (calculadora do
+// site, cadastro, assinatura). O servidor recalcula tudo na hora de gravar.
+function precosPublicos(t) {
     return {
-        id: p.id, nome: p.nome, descricao: p.descricao, preco_centavos: p.preco_centavos,
-        max_placares: p.max_placares, max_jogos_abertos: p.max_jogos_abertos, max_usuarios: p.max_usuarios,
-        max_armazenamento_mb: p.max_armazenamento_mb, esportes: p.esportes, recursos: p.recursos, dias_teste: p.dias_teste
+        preco_placar_centavos: t.preco_placar_centavos,
+        preco_pacote_usuarios_centavos: t.preco_pacote_usuarios_centavos,
+        usuarios_por_pacote: t.usuarios_por_pacote,
+        precos_recursos: t.precos_recursos,
+        jogos_por_placar: t.jogos_por_placar,
+        armazenamento_mb_por_placar: t.armazenamento_mb_por_placar,
+        dias_teste: t.dias_teste,
+        max_placares_autoatendimento: t.max_placares_autoatendimento,
+        max_pacotes_autoatendimento: t.max_pacotes_autoatendimento,
+        recursos: Object.fromEntries(Object.entries(limites.RECURSOS).map(([k, v]) => [k, v.rotulo]))
     };
 }
 
@@ -21,10 +31,7 @@ function rotasPublicas({ repos, contas }) {
     // Barata e sem banco: é o healthcheck do Compose e do script da VPS.
     r.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-    r.get('/api/publico/planos', async (_req, res) => {
-        const planos = await repos.planos.listar({ soAtivos: true, soPublicos: true });
-        res.json(planos.map(planoPublico));
-    });
+    r.get('/api/publico/precos', async (_req, res) => res.json(precosPublicos(await repos.precos.obter())));
 
     function iniciarSessao(req, usuario) {
         return new Promise((resolve, reject) => {
@@ -45,7 +52,7 @@ function rotasPublicas({ repos, contas }) {
         const b = req.body || {};
         const { usuario } = await contas.cadastrar({
             nomeCliente: b.nomeCliente, documento: b.documento, telefone: b.telefone,
-            nome: b.nome, email: b.email, senha: b.senha, planoId: b.planoId, ip
+            nome: b.nome, email: b.email, senha: b.senha, composicao: b.composicao, ip
         });
         await repos.usuarios.atualizar(usuario.id, { ultimo_login_em: new Date() });
         await iniciarSessao(req, usuario);
@@ -126,4 +133,4 @@ function rotasPublicas({ repos, contas }) {
     return r;
 }
 
-module.exports = { rotasPublicas, planoPublico };
+module.exports = { rotasPublicas, precosPublicos };

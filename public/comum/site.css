@@ -145,3 +145,14 @@ body.site { min-height: 100vh; background: var(--bg); }
     .marca { font-size: 24px; }
     .marca-icone { width: 26px; height: 19px; margin-right: 8px; }
 }
+
+/* Monte o seu plano (comum/montador.js) */
+.monte { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.monte .montador { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.monte-lado { position: sticky; top: 16px; background: var(--creme); color: var(--tinta); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.monte-lado > b { font-family: var(--f-rot); font-weight: 800; font-size: 24px; text-transform: uppercase; }
+.monte-lado ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; color: #3d424c; }
+.monte-lado li { display: flex; gap: 8px; align-items: flex-start; }
+.monte-lado li svg.i { color: var(--marca-forte); margin-top: 3px; }
+.monte-lado small { color: #5a606b; }
+@media (max-width: 900px) { .monte { grid-template-columns: 1fr; } .monte-lado { position: static; } }

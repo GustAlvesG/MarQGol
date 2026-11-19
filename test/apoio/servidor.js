@@ -77,7 +77,9 @@ async function subirServidor({ fetchAsaas, env = {} } = {}) {
         const n = Math.random().toString(36).slice(2, 8);
         const r = await nav.post('/api/auth/cadastro', {
             nomeCliente: `Clube ${n}`, documento: '529.982.247-25', nome: `Admin ${n}`,
-            email: `admin-${n}@teste.com`, senha: 'senha-segura', ...extra
+            email: `admin-${n}@teste.com`, senha: 'senha-segura',
+            // Plano on demand: 1 placar com mídia e vídeo do atleta (sem arte própria).
+            composicao: { placares: 1, pacotes_usuarios_extras: 0, recursos: { midia: true, video_jogador: true } }, ...extra
         });
         if (r.status !== 201) throw new Error('cadastro falhou: ' + JSON.stringify(r.dado));
         const resumo = await nav.get('/api/app/resumo');

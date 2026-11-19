@@ -21,8 +21,8 @@ function criarContas({ repos, email, cfg }) {
         if (senha !== undefined && !seg.senhaValida(senha)) throw new ErroRegra('A senha precisa ter pelo menos 8 caracteres.');
     }
 
-    // Cadastro público: cria o cliente em teste (14 dias, limites do plano
-    // escolhido), o usuário admin e a primeira quadra.
+    // Cadastro público: cria o cliente em teste (dias da tabela de preços), com
+    // o plano montado na página, o usuário admin e os placares contratados.
     async function cadastrar(d) {
         const nomeCliente = String(d.nomeCliente || '').trim();
         if (!nomeCliente) throw new ErroRegra('Informe o nome do clube ou da organização.');
@@ -31,8 +31,9 @@ function criarContas({ repos, email, cfg }) {
         if (!seg.documentoValido(documento)) throw new ErroRegra('CPF ou CNPJ inválido.');
         const emailNorm = seg.normalizarEmail(d.email);
         if (await repos.usuarios.porEmail(emailNorm)) throw new ErroRegra('Já existe uma conta com este e-mail. Use "Esqueci a senha" se precisar.', 409);
-        const plano = d.planoId ? await repos.planos.obter(Number(d.planoId)) : (await repos.planos.listar({ soAtivos: true, soPublicos: true }))[0];
-        if (!plano || !plano.ativo || !plano.publico) throw new ErroRegra('Plano indisponível.');
+        // Plano on demand: o que a pessoa montou na página (com o teto do autoatendimento).
+        const tabela = await repos.precos.obter();
+        const preco = limites.precoDaComposicao(limites.normalizarComposicao(d.composicao, tabela), tabela);
 
         const slug = await repos.clientes.slugDisponivel(seg.gerarSlug(nomeCliente));
         const senhaHash = await seg.gerarHashSenha(d.senha);
@@ -40,17 +41,21 @@ function criarContas({ repos, email, cfg }) {
             const cliente = await repos.clientes.criar({
                 nome: nomeCliente.slice(0, 120), slug, documento, email: emailNorm,
                 telefone: String(d.telefone || '').replace(/[^\d+]/g, '').slice(0, 20),
-                status: 'teste', plano_id: plano.id, teste_ate: limites.fimDoTeste(new Date(), plano.dias_teste)
+                status: 'teste', composicao: preco.composicao, valor_mensal_centavos: preco.total,
+                teste_ate: limites.fimDoTeste(new Date(), tabela.dias_teste)
             }, tx);
             const usuario = await repos.usuarios.criar({
                 cliente_id: cliente.id, nome: String(d.nome).trim().slice(0, 120), email: emailNorm,
                 senha_hash: senhaHash, papel: 'admin'
             }, tx);
-            await tx.query('INSERT INTO placares (cliente_id, nome) VALUES ($1, $2)', [cliente.id, 'Quadra 1']);
+            // Um placar por quadra contratada: "Quadra 1", "Quadra 2"...
+            for (let i = 1; i <= preco.composicao.placares; i++) {
+                await tx.query('INSERT INTO placares (cliente_id, nome) VALUES ($1, $2)', [cliente.id, `Quadra ${i}`]);
+            }
             return { cliente, usuario };
         });
         await enviarVerificacao(usuario);
-        await repos.auditoria.registrar({ usuarioId: usuario.id, clienteId: cliente.id, acao: 'cadastro', dados: { plano: plano.nome }, ip: d.ip || '' });
+        await repos.auditoria.registrar({ usuarioId: usuario.id, clienteId: cliente.id, acao: 'cadastro', dados: { plano: limites.resumoDaComposicao(preco.composicao, tabela), valor: preco.total / 100 }, ip: d.ip || '' });
         return { cliente, usuario };
     }
 

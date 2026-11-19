@@ -1,7 +1,7 @@
 // Área do cliente — telas de gestão: Arte do telão, Usuários, Assinatura e
 // Conta/Perfil.
 (function () {
-    const { num, ESPORTES, RECURSOS } = APP;
+    const { num, ESPORTES } = APP;
 
     // ================= Arte do telão =================
     const ROTULO_SLOT = {
@@ -49,7 +49,7 @@
             const b = arte.bordas || {};
             el.innerHTML = `
             ${APP.tituloPagina('Arte do telão', 'O visual que aparece nas TVs de todos os seus placares.')}
-            ${pode ? '' : `<div class="aviso-caixa">${ic('lock')}<div><b>Seu plano não inclui arte própria.</b> Você pode ver a arte atual abaixo. Para personalizar, troque de plano em Assinatura ou peça ao suporte para aplicar sua arte.</div></div>`}
+            ${pode ? '' : `<div class="aviso-caixa">${ic('lock')}<div><b>Seu plano não inclui arte própria.</b> Você pode ver a arte atual abaixo. Para personalizar, inclua a arte própria no seu plano em Assinatura ou peça ao suporte para aplicar sua arte.</div></div>`}
             <section class="cartao">
                 <div class="cartao-cab"><div><h2>Gabarito</h2><p>Siga o gabarito para que os números e nomes caiam nos lugares certos.</p></div></div>
                 <div class="grade-2">
@@ -283,57 +283,60 @@
     const FORMA = { PIX: 'Pix', BOLETO: 'Boleto', CREDIT_CARD: 'Cartão', UNDEFINED: 'Pix, boleto ou cartão', DEBIT_CARD: 'Débito' };
     const PAGA = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'DUNNING_RECEIVED'];
 
-    function cartaoPlano(p, atual, podeAssinar, temAssinatura) {
-        const esportes = (p.esportes && p.esportes.length ? p.esportes : Object.keys(ESPORTES)).map(e => ESPORTES[e] || e).join(', ');
-        const rec = p.recursos || {};
-        return `<div class="plano ${atual ? 'atual' : ''}">
-            <h3>${esc(p.nome)}${atual ? '<span class="tag marca">Seu plano</span>' : ''}</h3>
-            <div class="preco">${esc(MARQ.dinheiro(p.preco_centavos))} <small>/ mês</small></div>
-            ${p.descricao ? `<p class="ajuda" style="margin:0">${esc(p.descricao)}</p>` : ''}
-            <ul>
-                <li>${ic('check')}${num(p.max_placares)} placar${num(p.max_placares) === 1 ? '' : 'es'} simultâneo${num(p.max_placares) === 1 ? '' : 's'}</li>
-                <li>${ic('check')}${num(p.max_jogos_abertos)} jogos em aberto</li>
-                <li>${ic('check')}${num(p.max_usuarios)} usuário${num(p.max_usuarios) === 1 ? '' : 's'}</li>
-                <li>${ic('check')}${esc(APP.mb(p.max_armazenamento_mb))} de arquivos</li>
-                <li>${ic('check')}${esc(esportes)}</li>
-                ${Object.entries(RECURSOS).map(([k, r]) => rec[k] ? `<li>${ic('check')}${esc(r)}</li>` : `<li class="nao">${ic('x')}${esc(r)}</li>`).join('')}
-            </ul>
-            ${podeAssinar ? (atual && temAssinatura
-                ? '<button type="button" class="btn bloco" disabled>Plano atual</button>'
-                : `<button type="button" class="btn bloco ${atual ? 'marca' : 'claro'}" data-assinar="${p.id}" data-nome="${esc(p.nome)}">${atual ? 'Assinar' : (temAssinatura ? 'Trocar para este plano' : 'Assinar este plano')}</button>`) : ''}
-        </div>`;
-    }
+    // Plano on demand: a composição salva no cliente e a montada na tela são
+    // comparadas já normalizadas (sem teto), para "mudou?" não depender da ordem
+    // das chaves nem de campos faltando.
+    const chaveComp = (c, tabela) => JSON.stringify(MONTADOR.normalizar(c, tabela, false));
 
     APP.tela('assinatura', async (ctx) => {
         const el = ctx.el;
+        let a = null, montador = null;
+
         async function desenhar() {
-            const [a] = await Promise.all([MARQ.api('GET', '/api/app/assinatura'), APP.atualizarResumo()]);
+            const [dados, R] = await Promise.all([MARQ.api('GET', '/api/app/assinatura'), APP.atualizarResumo()]);
             if (!ctx.ativo()) return;
-            const c = a.cliente;
+            a = dados;
+            const c = a.cliente, tabela = a.precos;
             const [stR, stC] = APP.STATUS_CLIENTE[c.status] || [c.status, ''];
-            const atual = a.planos.find(p => p.id === c.plano_id);
-            const suporte = APP.S.resumo.usuario.impersonando;
-            const podeAssinar = a.pagamentoOnline && !suporte;
+            const suporte = R.usuario.impersonando;
+            const podeAssinar = a.pagamentoOnline && !suporte && !c.tem_assinatura && c.status !== 'cancelado';
             const aberta = a.faturas.find(f => !PAGA.includes(f.status) && f.link && ['PENDING', 'OVERDUE'].includes(f.status));
+            const comp = MONTADOR.normalizar(c.composicao, tabela, false);
+            // Plano acima do autoatendimento (montado pelo suporte): o montador
+            // cortaria no teto e salvar reduziria o plano sem querer, então só mostra.
+            const acimaDoSite = comp.placares > tabela.max_placares_autoatendimento || comp.pacotes_usuarios_extras > tabela.max_pacotes_autoatendimento;
+            const somenteLeitura = suporte || acimaDoSite || c.status === 'cancelado';
+            const valor = num(c.valor_mensal_centavos);
+            const difereTabela = valor !== num(a.precoTabela);
+            const notaLeitura = suporte ? 'O suporte altera o plano pelo painel de gestão.'
+                : c.status === 'cancelado' ? 'Conta cancelada. Fale com o suporte do MarQGol para reativar.'
+                : acimaDoSite ? 'Seu plano foi montado pelo suporte e passa do que dá para montar aqui. Para mudar, fale com o suporte do MarQGol.' : '';
+
             el.innerHTML = `
             ${APP.tituloPagina('Assinatura', 'Plano, pagamento e faturas.', `<button type="button" class="btn" data-acao="atualizar">${ic('refresh')}Atualizar</button>`)}
             <section class="cartao">
-                <div class="cartao-cab"><div><h2>Situação</h2></div><span class="tag ${stC}" style="font-size:15px">${esc(stR)}</span></div>
+                <div class="cartao-cab"><div><h2>Seu plano</h2><p>${esc(MONTADOR.resumo(comp, tabela))}</p></div><span class="tag ${stC}" style="font-size:15px">${esc(stR)}</span></div>
+                <div class="plano-valor">${esc(MARQ.dinheiro(valor))} <small>/ mês</small></div>
                 <dl class="dl">
-                    <dt>Plano</dt><dd>${atual ? esc(atual.nome) + ' · ' + esc(MARQ.dinheiro(atual.preco_centavos)) + '/mês' : 'Nenhum'}</dd>
                     ${c.status === 'teste' ? `<dt>Teste até</dt><dd>${esc(MARQ.data(c.teste_ate))}</dd>` : ''}
                     ${c.proximo_vencimento ? `<dt>Próximo vencimento</dt><dd>${esc(MARQ.data(c.proximo_vencimento))}</dd>` : ''}
                     <dt>Assinatura</dt><dd>${c.tem_assinatura ? 'Registrada' : 'Ainda não assinada'}</dd>
                 </dl>
+                ${difereTabela ? `<div class="aviso-caixa info">${ic('info')}<div>Você paga o valor contratado, que continua valendo. Pela tabela de hoje, este plano sairia por <b>${esc(MARQ.dinheiro(a.precoTabela))}/mês</b>. Se você mudar o plano, o novo valor segue a tabela de hoje.</div></div>` : ''}
                 ${aberta ? `<div class="acoes"><a class="btn marca" href="${esc(aberta.link)}" target="_blank" rel="noopener">${ic('card')}Pagar fatura em aberto (${esc(MARQ.dinheiro(aberta.valor_centavos))})</a></div>` : ''}
+                ${podeAssinar ? `<div class="acoes"><button type="button" class="btn marca" data-acao="assinar">${ic('card')}Assinar por ${esc(MARQ.dinheiro(valor))}/mês</button></div>` : ''}
                 ${a.pagamentoOnline
                     ? `<div class="aviso-caixa info">${ic('info')}<div>${c.status === 'teste' ? 'A primeira cobrança vence no fim do teste. ' : ''}Pague por <b>Pix, boleto ou cartão</b>. A fatura chega por e-mail e também aparece aqui.</div></div>`
-                    : `<div class="aviso-caixa">${ic('alert')}<div><b>O pagamento online ainda não está ativo.</b> Para assinar ou trocar de plano, fale com o suporte do MarQGol.</div></div>`}
-                ${suporte ? `<div class="aviso-caixa">${ic('shield')}<div>Como suporte, altere o plano pelo painel de gestão.</div></div>` : ''}
+                    : `<div class="aviso-caixa">${ic('alert')}<div><b>O pagamento online ainda não está ativo.</b> Para assinar, fale com o suporte do MarQGol.</div></div>`}
             </section>
             <section class="cartao">
-                <div class="cartao-cab"><div><h2>Planos</h2><p>Trocar de plano vale a partir da próxima cobrança.</p></div></div>
-                <div class="grade-planos">${a.planos.map(p => cartaoPlano(p, p.id === c.plano_id, podeAssinar, c.tem_assinatura)).join('')}</div>
+                <div class="cartao-cab"><div><h2>Monte seu plano</h2><p>${somenteLeitura ? 'Composição atual do plano.' : `Escolha placares, usuários e recursos. ${c.tem_assinatura ? 'O novo valor vai para a sua assinatura.' : 'O valor vale para a assinatura.'}`}</p></div></div>
+                ${notaLeitura ? `<div class="aviso-caixa">${ic(suporte ? 'shield' : 'lock')}<div>${esc(notaLeitura)}</div></div>` : ''}
+                <div id="montador" class="${somenteLeitura ? 'montador-leitura' : ''}"></div>
+                ${somenteLeitura ? '' : `<div class="acoes plano-salvar">
+                    <span class="ajuda" id="plano-dif"></span>
+                    <button type="button" class="btn claro" data-acao="salvar-plano" disabled>${ic('save')}Salvar plano</button>
+                </div>`}
             </section>
             <section class="cartao">
                 <div class="cartao-cab"><div><h2>Faturas</h2></div></div>
@@ -351,32 +354,80 @@
                 <div class="cartao-cab"><div><h2>Cancelar assinatura</h2><p>As cobranças futuras são canceladas e o acesso aos placares é encerrado.</p></div>
                 <button type="button" class="btn perigo" data-acao="cancelar">${ic('x')}Cancelar assinatura</button></div>
             </section>` : ''}`;
+
+            const caixa = el.querySelector('#montador');
+            montador = MONTADOR.criar(caixa, {
+                tabela, composicao: comp, teto: !somenteLeitura,
+                aoMudar: (nova, p) => {
+                    const mudou = chaveComp(nova, tabela) !== chaveComp(comp, tabela);
+                    el.querySelector('[data-acao="salvar-plano"]').disabled = !mudou;
+                    el.querySelector('#plano-dif').textContent = mudou ? `Novo valor: ${MARQ.dinheiro(p.total)}/mês (hoje: ${MARQ.dinheiro(valor)}).` : '';
+                }
+            });
+            if (somenteLeitura) caixa.querySelectorAll('button, input').forEach(x => { x.disabled = true; });
+        }
+
+        function planoAlterado() {
+            const b = el.querySelector('[data-acao="salvar-plano"]');
+            return !!(b && !b.disabled);
+        }
+
+        async function salvarPlano(b) {
+            const c = a.cliente, tabela = a.precos;
+            const nova = montador.composicao();
+            const total = montador.preco().total;
+            const ativos = (APP.S.resumo.placares || []).filter(p => p.ativo).length;
+            const partes = [`${MONTADOR.resumo(nova, tabela)} por ${MARQ.dinheiro(total)}/mês.`];
+            if (c.tem_assinatura) partes.push('O novo valor mensal vai para a sua assinatura e vale nas próximas cobranças.');
+            if (nova.placares < ativos) {
+                const sobra = ativos - nova.placares;
+                partes.push(`Atenção: você tem ${ativos} placares ativos. ${sobra === 1 ? 'O placar a mais não poderá ser operado' : `Os ${sobra} placares a mais não poderão ser operados`} até você desativar ${sobra === 1 ? 'um' : sobra} em Placares.`);
+            }
+            const ok = await confirmar({ titulo: 'Salvar plano?', texto: partes.join('\n'), sim: 'Salvar plano' });
+            if (!ok) return;
+            await APP.acao(b, async () => {
+                await MARQ.api('PUT', '/api/app/composicao', { composicao: nova });
+                toast('Plano atualizado.');
+                await desenhar();
+            });
+        }
+
+        async function assinar(b) {
+            if (planoAlterado()) {
+                await avisar('Plano não salvo', 'Você mudou o plano e ainda não salvou. Salve o plano antes de assinar.');
+                return;
+            }
+            const c = a.cliente;
+            const ok = await confirmar({
+                titulo: 'Assinar o MarQGol?',
+                texto: `${MONTADOR.resumo(c.composicao, a.precos)} por ${MARQ.dinheiro(c.valor_mensal_centavos)}/mês.\nGeramos a cobrança mensal. A primeira vence no fim do teste (ou hoje, se o teste já acabou). Pague por Pix, boleto ou cartão.`,
+                sim: 'Assinar'
+            });
+            if (!ok) return;
+            await APP.acao(b, async () => {
+                const r = await MARQ.api('POST', '/api/app/assinatura', {});
+                await desenhar();
+                if (r.linkPagamento) {
+                    APP.folha({
+                        titulo: 'Assinatura registrada',
+                        corpo: '<p>Sua fatura está pronta. Você pode pagar agora ou depois pelo e-mail que enviamos.</p>',
+                        botoes: [{ rotulo: 'Depois', cancelar: true }],
+                        aoAbrir: (f) => f.querySelector('.folha-pe').insertAdjacentHTML('beforeend',
+                            `<a class="btn marca" href="${esc(r.linkPagamento)}" target="_blank" rel="noopener">${ic('card')}Pagar fatura</a>`)
+                    });
+                } else toast('Assinatura registrada.');
+            });
         }
 
         el.onclick = async (ev) => {
-            const as = ev.target.closest('[data-assinar]');
-            if (as) {
-                const ok = await confirmar({ titulo: `Assinar o plano ${as.dataset.nome}?`, texto: 'Geramos a cobrança mensal. A primeira vence no fim do teste (ou hoje, se o teste já acabou). Pague por Pix, boleto ou cartão.', sim: 'Assinar' });
-                if (!ok) return;
-                await APP.acao(as, async () => {
-                    const r = await MARQ.api('POST', '/api/app/assinatura', { planoId: Number(as.dataset.assinar) });
-                    await desenhar();
-                    if (r.linkPagamento) {
-                        APP.folha({
-                            titulo: 'Assinatura registrada',
-                            corpo: '<p>Sua fatura está pronta. Você pode pagar agora ou depois pelo e-mail que enviamos.</p>',
-                            botoes: [{ rotulo: 'Depois', cancelar: true }],
-                            aoAbrir: (f) => f.querySelector('.folha-pe').insertAdjacentHTML('beforeend',
-                                `<a class="btn marca" href="${esc(r.linkPagamento)}" target="_blank" rel="noopener">${ic('card')}Pagar fatura</a>`)
-                        });
-                    } else toast('Plano atualizado.');
-                });
-                return;
-            }
             const b = ev.target.closest('[data-acao]');
             if (!b) return;
             if (b.dataset.acao === 'atualizar') {
                 await APP.acao(b, async () => { await MARQ.api('POST', '/api/app/assinatura/atualizar'); await desenhar(); toast('Faturas atualizadas.'); });
+            } else if (b.dataset.acao === 'salvar-plano') {
+                await salvarPlano(b);
+            } else if (b.dataset.acao === 'assinar') {
+                await assinar(b);
             } else if (b.dataset.acao === 'cancelar') {
                 APP.folha({
                     titulo: 'Cancelar assinatura',

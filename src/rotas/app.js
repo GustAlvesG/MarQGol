@@ -4,7 +4,7 @@ const express = require('express');
 const limites = require('../limites');
 const seg = require('../seguranca');
 const { ErroRegra } = require('../servicos/agenda');
-const { planoPublico } = require('./publico');
+const { precosPublicos } = require('./publico');
 
 function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador, asaas, mw }) {
     const r = express.Router();
@@ -21,15 +21,16 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
     function clientePublico(c) {
         return {
             id: c.id, nome: c.nome, slug: c.slug, documento: c.documento, email: c.email, telefone: c.telefone,
-            status: c.status, teste_ate: c.teste_ate, plano_id: c.plano_id, proximo_vencimento: c.proximo_vencimento,
+            status: c.status, teste_ate: c.teste_ate, composicao: c.composicao, valor_mensal_centavos: c.valor_mensal_centavos,
+            proximo_vencimento: c.proximo_vencimento,
             inadimplente_desde: c.inadimplente_desde, tem_assinatura: !!c.asaas_assinatura_id
         };
     }
 
     r.get('/api/app/resumo', async (req, res) => {
         const c = req.usuario.cliente;
-        const [plano, lim, uso, bytes, placares] = await Promise.all([
-            c.plano_id ? repos.planos.obter(c.plano_id) : null,
+        const [tabela, lim, uso, bytes, placares] = await Promise.all([
+            repos.precos.obter(),
             repos.clientes.limites(c),
             repos.clientes.uso(c.id),
             armazenamento.usoBytes(c.id),
@@ -39,7 +40,8 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
             usuario: { id: req.usuario.id, nome: req.usuario.nome, email: req.usuario.email, papel: req.usuario.papel,
                 impersonando: req.usuario.impersonando, emailVerificado: req.usuario.emailVerificado, emailAtivo: contas.emailAtivo },
             cliente: clientePublico(c),
-            plano: plano ? planoPublico(plano) : null,
+            // Plano on demand: "2 placares · 20 usuários · mídia" e o valor mensal.
+            plano: { resumo: limites.resumoDaComposicao(c.composicao, tabela), composicao: c.composicao, valor_mensal_centavos: c.valor_mensal_centavos },
             limites: lim,
             uso: { ...uso, max_armazenamento_mb: Math.round(bytes / 1024 / 1024 * 10) / 10 },
             placares,
@@ -87,7 +89,7 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
     async function conferirLimitePlacares(clienteId, acrescimo = 1) {
         const [lim, uso] = await Promise.all([repos.clientes.limites(clienteId), repos.clientes.uso(clienteId)]);
         const v = limites.verificar('max_placares', uso.max_placares, lim, acrescimo);
-        if (!v.ok) throw new ErroRegra(v.mensagem + ' Desative outro placar ou troque de plano.', 403, 'limite');
+        if (!v.ok) throw new ErroRegra(v.mensagem + ' Desative outro placar ou aumente o plano em Assinatura.', 403, 'limite');
     }
 
     r.get('/api/app/placares', async (req, res) => res.json(await repos.placares.listar(cid(req))));
@@ -331,22 +333,29 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
     // ---------------- Assinatura ----------------
     r.get('/api/app/assinatura', mw.exigirAdminCliente, async (req, res) => {
         const c = await repos.clientes.obter(cid(req));
-        const [planos, faturas] = await Promise.all([
-            repos.planos.listar({ soAtivos: true }),
-            repos.faturas.listar(c.id)
-        ]);
+        const [tabela, faturas] = await Promise.all([repos.precos.obter(), repos.faturas.listar(c.id)]);
+        const preco = limites.precoDaComposicao(c.composicao, tabela);
         res.json({
             cliente: clientePublico(c),
             pagamentoOnline: asaas.configurado,
-            // Planos públicos + o plano atual (mesmo que seja sob medida).
-            planos: planos.filter(p => p.publico || p.id === c.plano_id).map(planoPublico),
+            precos: precosPublicos(tabela),
+            // O que paga hoje pode diferir da tabela atual (preço congelado ou negociado).
+            precoTabela: preco.total,
+            itens: preco.itens,
             faturas
         });
     });
 
+    // Monta/muda o plano on demand. Com assinatura, o Asaas é atualizado junto.
+    r.put('/api/app/composicao', mw.exigirAdminCliente, async (req, res) => {
+        if (req.usuario.impersonando) throw new ErroRegra('O suporte altera o plano pelo painel de gestão.', 403);
+        const c = await cobranca.aplicarComposicao(cid(req), (req.body || {}).composicao, req.usuario);
+        res.json({ ok: true, cliente: clientePublico(c) });
+    });
+
     r.post('/api/app/assinatura', mw.exigirAdminCliente, async (req, res) => {
         if (req.usuario.impersonando) throw new ErroRegra('O suporte não assina pelo cliente. Altere o plano pelo painel.', 403);
-        const c = await cobranca.assinar(cid(req), num((req.body || {}).planoId), req.usuario);
+        const c = await cobranca.assinar(cid(req), req.usuario);
         const faturas = await repos.faturas.listar(c.id);
         const aberta = faturas.find(f => !['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(f.status) && f.link);
         res.json({ ok: true, cliente: clientePublico(c), linkPagamento: aberta ? aberta.link : null });

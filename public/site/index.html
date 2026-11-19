@@ -97,9 +97,23 @@
 
   <section class="secao" id="planos">
     <p class="olho">Planos</p>
-    <h2>Escolha quantas <em>quadras</em></h2>
-    <p class="sub">Todos começam com 14 dias de teste. Pague por Pix, boleto ou cartão.</p>
-    <div class="planos" id="lista-planos"><p class="vazio">Carregando planos…</p></div>
+    <h2>Monte o <em>seu plano</em></h2>
+    <p class="sub">Pague só pelo que usa: quantos placares, quantos usuários e os recursos especiais que fazem sentido para o seu clube. Teste grátis por <b id="dias-teste">14</b> dias e mude quando quiser.</p>
+    <div class="monte">
+      <div id="montador"><p class="vazio">Carregando preços…</p></div>
+      <aside class="monte-lado">
+        <b>Todo plano inclui</b>
+        <ul>
+          <li>${ic:check}Futsal, basquete e vôlei</li>
+          <li>${ic:check}Telão, mesa de controle e agenda de jogos</li>
+          <li>${ic:check}Times e atletas com foto</li>
+          <li>${ic:check}Quantas TVs quiser em cada placar</li>
+          <li>${ic:check}Atualizações e suporte</li>
+        </ul>
+        <a class="btn grande marca-btn bloco" id="btn-montado" href="/cadastro">Testar este plano grátis</a>
+        <small>Sem cartão. Pague por Pix, boleto ou cartão só se continuar.</small>
+      </aside>
+    </div>
   </section>
 
   <section class="secao" style="padding-top:8px">
@@ -114,6 +128,7 @@
 
 <script src="/comum/ui.js"></script>
 <script src="/comum/marq.js"></script>
+<script src="/comum/montador.js"></script>
 <script>
 const RECURSOS = [
     ['Faixa de ponto animada', 'GOL!, CESTA! ou PONTO! com foto, número e nome do atleta e o brasão do time.'],
@@ -127,33 +142,18 @@ document.getElementById('lista-recursos').innerHTML = RECURSOS.map(([t, d], i) =
     `<div class="item-num"><h3><small>0${i + 1}</small>${esc(t)}</h3><p>${esc(d)}</p></div>`).join('');
 document.getElementById('seta').outerHTML = ic('right');
 
-function itensDoPlano(p) {
-    const r = p.recursos || {};
-    const gb = (mb) => mb >= 1024 ? `${Math.round(mb / 1024)} GB` : `${mb} MB`;
-    const itens = [
-        [true, `${p.max_placares} placar${p.max_placares === 1 ? '' : 'es'} (quadras) ao mesmo tempo`],
-        [true, `${p.max_jogos_abertos} jogos agendados em aberto`],
-        [true, `${p.max_usuarios} usuários`],
-        [true, `${gb(p.max_armazenamento_mb)} para fotos, vídeos e slides`],
-        [r.midia !== false, 'Comerciais, slides e patrocinadores'],
-        [!!r.video_jogador, 'Vídeo de apresentação do jogador'],
-        [!!r.arte_propria, 'Telão com a arte do seu clube']
-    ];
-    return itens.map(([ok, t]) => `<li class="${ok ? '' : 'nao'}">${ic(ok ? 'check' : 'x')}<span>${esc(t)}</span></li>`).join('');
-}
-
-MARQ.api('GET', '/api/publico/planos').then(planos => {
-    const meio = Math.floor((planos.length - 1) / 2);
-    document.getElementById('lista-planos').innerHTML = planos.map((p, i) => `
-      <div class="plano ${i === meio && planos.length > 1 ? 'destaque' : ''}">
-        <h3>${esc(p.nome)}</h3>
-        <div class="preco">${esc(MARQ.dinheiro(p.preco_centavos))} <small>/mês</small></div>
-        <p style="color:var(--muted);margin:0">${esc(p.descricao)}</p>
-        <ul>${itensDoPlano(p)}</ul>
-        <a class="btn ${i === meio ? 'marca-btn' : 'claro'} bloco" href="/cadastro?plano=${p.id}">Testar ${p.dias_teste} dias grátis</a>
-      </div>`).join('') || '<p class="vazio">Planos em breve.</p>';
+// Plano on demand: a pessoa monta e leva a composição para o cadastro.
+document.querySelectorAll('.monte-lado li').forEach(li => { li.innerHTML = li.innerHTML.replace('${ic:check}', ic('check')); });
+MARQ.api('GET', '/api/publico/precos').then(tabela => {
+    document.getElementById('dias-teste').textContent = tabela.dias_teste;
+    const btn = document.getElementById('btn-montado');
+    const atualizar = (comp) => { btn.href = '/cadastro?' + MONTADOR.paraUrl(comp); };
+    const m = MONTADOR.criar(document.getElementById('montador'), {
+        tabela, composicao: { placares: 1, recursos: { midia: true } }, aoMudar: atualizar
+    });
+    atualizar(m.composicao());
 }).catch(() => {
-    document.getElementById('lista-planos').innerHTML = '<p class="vazio">Não foi possível carregar os planos agora.</p>';
+    document.getElementById('montador').innerHTML = '<p class="vazio">Não foi possível carregar os preços agora.</p>';
 });
 
 // Já logado? O botão "Entrar" vira "Abrir o painel".

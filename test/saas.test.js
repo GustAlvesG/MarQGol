@@ -14,10 +14,15 @@ test('MarQGol — fluxo completo', opcoes, async (t) => {
     const resumoA = await S.cadastrar(a);
     const placarA = resumoA.placares[0].id;
 
-    await t.test('cadastro cria cliente em teste com o plano e a primeira quadra', () => {
+    await t.test('cadastro cria cliente em teste com o plano montado e a primeira quadra', () => {
         assert.equal(resumoA.cliente.status, 'teste');
-        assert.equal(resumoA.plano.nome, 'Básico');
+        assert.equal(resumoA.plano.composicao.placares, 1);
+        // 1 placar (89,00) + mídia (29,00) + vídeo do atleta (19,00), tabela inicial.
+        assert.equal(resumoA.plano.valor_mensal_centavos, 13700);
         assert.equal(resumoA.limites.max_placares, 1);
+        assert.equal(resumoA.limites.max_usuarios, 10, '1º pacote de 10 usuários incluso');
+        assert.equal(resumoA.limites.max_jogos_abertos, 20);
+        assert.equal(resumoA.limites.recursos.arte_propria, false);
         assert.equal(resumoA.placares.length, 1);
         const dias = (new Date(resumoA.cliente.teste_ate) - Date.now()) / 86400000;
         assert.ok(dias > 13.9 && dias <= 14.01, `teste de 14 dias (veio ${dias})`);
@@ -251,10 +256,12 @@ test('MarQGol — fluxo completo', opcoes, async (t) => {
         assert.equal((await op.post('/api/app/placares', { nome: 'Q' })).status, 403);
         assert.equal((await op.get('/api/app/usuarios')).status, 403);
         await S.conectar(op, placarA);
-        // Plano Básico: 3 usuários. Admin + op = 2; o terceiro passa, o quarto não.
+        // Com limite de 3 usuários: admin + op = 2; o terceiro passa, o quarto não.
+        await S.db.query(`UPDATE clientes SET limites_extra = '{"max_usuarios": 3}' WHERE id = $1`, [resumoA.cliente.id]);
         assert.equal((await a.post('/api/app/usuarios', { nome: 'X', email: 'x@teste.com' })).status, 201);
         const quarto = await a.post('/api/app/usuarios', { nome: 'Y', email: 'y@teste.com' });
         assert.equal(quarto.status, 403);
+        await S.db.query(`UPDATE clientes SET limites_extra = '{}' WHERE id = $1`, [resumoA.cliente.id]);
     });
 
     await t.test('fim do teste sem assinatura suspende; suspenso não agenda mas o jogo ao vivo continua', async () => {
@@ -359,27 +366,35 @@ test('assinatura via Asaas (fetch falso)', opcoes, async (t) => {
     t.after(() => S.fechar());
     const nav = S.navegador();
     const resumo = await S.cadastrar(nav);
-    const planos = (await nav.get('/api/app/assinatura')).dado.planos;
-    const prof = planos.find(p => p.nome === 'Profissional');
-    const r = await nav.post('/api/app/assinatura', { planoId: prof.id });
+    // Monta o plano: 3 placares + todos os recursos = 3×89 + 29 + 19 + 49 = 364,00.
+    const comp = await nav.put('/api/app/composicao', { composicao: { placares: 3, recursos: { midia: true, video_jogador: true, arte_propria: true } } });
+    assert.equal(comp.status, 200, JSON.stringify(comp.dado));
+    assert.equal(comp.dado.cliente.valor_mensal_centavos, 36400);
+    assert.equal(chamadas.length, 0, 'sem assinatura, mudar o plano não chama o Asaas');
+    const ass = (await nav.get('/api/app/assinatura')).dado;
+    assert.equal(ass.precoTabela, 36400);
+    assert.equal(ass.itens.length, 4);
+    const r = await nav.post('/api/app/assinatura', {});
     assert.equal(r.status, 200, JSON.stringify(r.dado));
     assert.equal(r.dado.linkPagamento, 'https://asaas/pay_X');
     const criarAss = chamadas.find(c => c.url.endsWith('/subscriptions'));
-    assert.equal(criarAss.corpo.value, 249);
+    assert.equal(criarAss.corpo.value, 364);
+    assert.match(criarAss.corpo.description, /3 placares/);
     assert.equal(criarAss.corpo.billingType, 'UNDEFINED');
     assert.equal(criarAss.chave, 'chave-teste');
     // Primeira cobrança vence no fim do teste, não hoje.
     const fimTeste = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(resumo.cliente.teste_ate));
     assert.equal(criarAss.corpo.nextDueDate, fimTeste);
     const depois = (await nav.get('/api/app/resumo')).dado;
-    assert.equal(depois.plano.nome, 'Profissional');
+    assert.equal(depois.limites.max_placares, 3);
     assert.equal(depois.cliente.tem_assinatura, true);
-    // Trocar de plano atualiza a assinatura existente.
-    const basico = planos.find(p => p.nome === 'Básico');
-    await nav.post('/api/app/assinatura', { planoId: basico.id });
+    assert.equal((await nav.post('/api/app/assinatura', {})).status, 409, 'não assina duas vezes');
+    // Mudar o plano atualiza a assinatura existente: 1 placar + 2 pacotes extras de usuários = 89 + 2×19.
+    await nav.put('/api/app/composicao', { composicao: { placares: 1, pacotes_usuarios_extras: 2 } });
     const put = chamadas.find(c => c.metodo === 'PUT' && /sub_X$/.test(c.url));
-    assert.equal(put.corpo.value, 99);
+    assert.equal(put.corpo.value, 127);
     assert.equal(put.corpo.updatePendingPayments, true);
+    assert.equal((await nav.get('/api/app/resumo')).dado.limites.max_usuarios, 30);
 });
 
 test('gestão de usuários sem e-mail (senha definida por quem cadastra)', opcoes, async (t) => {
@@ -388,15 +403,19 @@ test('gestão de usuários sem e-mail (senha definida por quem cadastra)', opcoe
     const dono = S.navegador();
     assert.equal((await dono.post('/api/auth/entrar', { email: 'dono@marqgol.test', senha: 'senha-do-dono' })).status, 200);
     const enviadosAntes = S.marq.email.enviados.length;
-    const planos = (await dono.get('/api/admin/planos')).dado.planos;
 
     let cliente;
     await t.test('painel cria cliente com a senha do admin, sem e-mail', async () => {
         const r = await dono.post('/api/admin/clientes', {
-            nome: 'Clube Sem Email', email: 'adm@semail.test', plano_id: planos[1].id, status: 'ativo', senhaAdmin: 'senha-do-adm'
+            nome: 'Clube Sem Email', email: 'adm@semail.test', composicao: { placares: 2 }, valor_mensal_centavos: 15000,
+            status: 'ativo', senhaAdmin: 'senha-do-adm'
         });
         assert.equal(r.status, 201);
         cliente = r.dado;
+        assert.equal(cliente.valor_mensal_centavos, 15000, 'preço negociado');
+        const det = (await dono.get('/api/admin/clientes/' + cliente.id)).dado;
+        assert.deepEqual(det.placares.map(p => p.nome).sort(), ['Quadra 1', 'Quadra 2']);
+        assert.equal(det.plano.total, 17800, 'preço de tabela continua visível');
         assert.equal(S.marq.email.enviados.length, enviadosAntes, 'nenhum e-mail enviado');
         const adm = S.navegador();
         assert.equal((await adm.post('/api/auth/entrar', { email: 'adm@semail.test', senha: 'senha-do-adm' })).status, 200);
@@ -407,7 +426,7 @@ test('gestão de usuários sem e-mail (senha definida por quem cadastra)', opcoe
     });
 
     await t.test('senha curta do admin é recusada sem criar o cliente', async () => {
-        const r = await dono.post('/api/admin/clientes', { nome: 'Curto', email: 'c@semail.test', plano_id: planos[0].id, senhaAdmin: '123' });
+        const r = await dono.post('/api/admin/clientes', { nome: 'Curto', email: 'c@semail.test', composicao: { placares: 1 }, senhaAdmin: '123' });
         assert.equal(r.status, 422);
         const lista = (await dono.get('/api/admin/clientes?busca=Curto')).dado;
         assert.equal(lista.length, 0);
@@ -464,5 +483,44 @@ test('gestão de usuários sem e-mail (senha definida por quem cadastra)', opcoe
         const adm = S.navegador();
         await adm.post('/api/auth/entrar', { email: 'adm@semail.test', senha: 'senha-do-adm' });
         assert.equal((await adm.get('/api/admin/superadmins')).status, 403);
+    });
+});
+
+test('plano on demand: tabela de preços, teto do site e preço congelado', opcoes, async (t) => {
+    const S = await subirServidor();
+    t.after(() => S.fechar());
+    const precos = (await S.navegador().get('/api/publico/precos')).dado;
+    assert.equal(precos.usuarios_por_pacote, 10);
+    assert.equal(precos.preco_placar_centavos, 8900);
+    assert.ok(precos.recursos.arte_propria);
+
+    await t.test('site não passa do teto do autoatendimento', async () => {
+        const nav = S.navegador();
+        const r = await S.cadastrar(nav, { composicao: { placares: 999, pacotes_usuarios_extras: 999, recursos: { arte_propria: true } } });
+        assert.equal(r.plano.composicao.placares, precos.max_placares_autoatendimento);
+        assert.equal(r.plano.composicao.pacotes_usuarios_extras, precos.max_pacotes_autoatendimento);
+        assert.equal(r.placares.length, precos.max_placares_autoatendimento, 'cria um placar por quadra contratada');
+        assert.equal(r.limites.recursos.arte_propria, true);
+        assert.equal(r.limites.recursos.midia, false);
+    });
+
+    await t.test('mudar a tabela vale para novos clientes, não para quem já contratou', async () => {
+        const antigo = await S.cadastrar(S.navegador(), { composicao: { placares: 1, recursos: {} } });
+        assert.equal(antigo.plano.valor_mensal_centavos, 8900);
+        const dono = S.navegador();
+        await dono.post('/api/auth/entrar', { email: 'dono@marqgol.test', senha: 'senha-do-dono' });
+        assert.equal((await dono.put('/api/admin/precos', { preco_placar_centavos: -1 })).status, 422);
+        const r = await dono.put('/api/admin/precos', { preco_placar_centavos: 10000, jogos_por_placar: 5 });
+        assert.equal(r.status, 200, JSON.stringify(r.dado));
+        const novo = await S.cadastrar(S.navegador(), { composicao: { placares: 1, recursos: {} } });
+        assert.equal(novo.plano.valor_mensal_centavos, 10000);
+        const det = (await dono.get('/api/admin/clientes/' + antigo.cliente.id)).dado;
+        assert.equal(det.cliente.valor_mensal_centavos, 8900, 'preço congelado');
+        assert.equal(det.limites.max_jogos_abertos, 5, 'cotas por placar seguem a tabela');
+        // Painel: preço negociado e volta para a tabela com valor null.
+        assert.equal((await dono.patch('/api/admin/clientes/' + antigo.cliente.id, { valor_mensal_centavos: 5000 })).dado.valor_mensal_centavos, 5000);
+        assert.equal((await dono.patch('/api/admin/clientes/' + antigo.cliente.id, { composicao: { placares: 2 }, valor_mensal_centavos: null })).dado.valor_mensal_centavos, 20000);
+        // Operador não muda o plano.
+        assert.equal((await dono.get('/api/admin/precos')).dado.precos.preco_placar_centavos, 10000);
     });
 });

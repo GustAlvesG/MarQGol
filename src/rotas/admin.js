@@ -1,4 +1,4 @@
-// API do painel de gestão (/admin) — só superadmin. Clientes, planos,
+// API do painel de gestão (/admin) — só superadmin. Clientes, tabela de preços do plano on demand,
 // limites individuais, status, "entrar como" e auditoria.
 const express = require('express');
 const limites = require('../limites');
@@ -20,8 +20,10 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
 
     r.get('/api/admin/clientes', async (req, res) => {
         const lista = await repos.clientes.listarComUso({ busca: texto(req.query.busca, 80), status: texto(req.query.status, 20) });
+        const tabela = await repos.precos.obter();
         res.json(lista.map(c => ({
-            id: c.id, nome: c.nome, slug: c.slug, email: c.email, status: c.status, plano_id: c.plano_id, plano_nome: c.plano_nome,
+            id: c.id, nome: c.nome, slug: c.slug, email: c.email, status: c.status,
+            plano_resumo: limites.resumoDaComposicao(c.composicao, tabela), valor_mensal_centavos: c.valor_mensal_centavos,
             teste_ate: c.teste_ate, criado_em: c.criado_em, ultimo_acesso_em: c.ultimo_acesso_em,
             uso: { placares: c.uso_placares, jogos_abertos: c.uso_jogos_abertos, usuarios: c.uso_usuarios },
             tem_limites_extra: Object.keys(c.limites_extra || {}).length > 0
@@ -31,14 +33,18 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
     r.get('/api/admin/clientes/:id', async (req, res) => {
         const c = await repos.clientes.obter(num(req.params.id));
         if (!c) throw new ErroRegra('Cliente não encontrado.', 404);
-        const [plano, lim, uso, bytes, usuarios, placares, faturas, auditoria] = await Promise.all([
-            c.plano_id ? repos.planos.obter(c.plano_id) : null,
+        const [tabela, lim, uso, bytes, usuarios, placares, faturas, auditoria] = await Promise.all([
+            repos.precos.obter(),
             repos.clientes.limites(c), repos.clientes.uso(c.id), armazenamento.usoBytes(c.id, { semCache: true }),
             repos.usuarios.listar(c.id), repos.placares.listar(c.id), repos.faturas.listar(c.id),
             repos.auditoria.listar({ clienteId: c.id, limite: 50 })
         ]);
         res.json({
-            cliente: c, plano, limites: lim,
+            cliente: c, limites: lim,
+            // Preço da composição atual pela tabela de hoje (o cliente pode pagar
+            // outro valor: preço congelado da contratação ou negociado).
+            plano: { resumo: limites.resumoDaComposicao(c.composicao, tabela), ...limites.precoDaComposicao(c.composicao, tabela) },
+            precos: tabela, recursos: limites.RECURSOS,
             uso: { ...uso, max_armazenamento_mb: Math.round(bytes / 1024 / 1024 * 10) / 10 },
             usuarios, placares, faturas, auditoria
         });
@@ -73,8 +79,13 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
         if (!seg.emailValido(email)) throw new ErroRegra('E-mail inválido.');
         const documento = String(b.documento || '').replace(/\D/g, '');
         if (documento && !seg.documentoValido(documento)) throw new ErroRegra('CPF ou CNPJ inválido.');
-        const plano = await repos.planos.obter(num(b.plano_id));
-        if (!plano) throw new ErroRegra('Escolha um plano.');
+        // Plano on demand montado por você (sem o teto do autoatendimento) e,
+        // se houver, o valor negociado; senão vale a tabela de preços.
+        const tabela = await repos.precos.obter();
+        const preco = limites.precoDaComposicao(limites.normalizarComposicao(b.composicao, tabela, { teto: false }), tabela);
+        const valor = b.valor_mensal_centavos === undefined || b.valor_mensal_centavos === null || b.valor_mensal_centavos === ''
+            ? preco.total : Math.round(Number(b.valor_mensal_centavos));
+        if (!Number.isInteger(valor) || valor < 0) throw new ErroRegra('Valor mensal inválido.');
         // Acesso do administrador: senha definida agora (sem e-mail) ou convite.
         const senhaAdmin = b.senhaAdmin ? String(b.senhaAdmin) : '';
         if (senhaAdmin && !seg.senhaValida(senhaAdmin)) throw new ErroRegra('A senha do administrador precisa ter pelo menos 8 caracteres.');
@@ -83,19 +94,20 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
             throw new ErroRegra('Este e-mail já tem uma conta no MarQGol. Use outro e-mail para o administrador.', 409);
         }
         const status = STATUS.includes(b.status) ? b.status : 'teste';
-        const testeAte = status === 'teste' ? (b.teste_ate ? new Date(b.teste_ate) : limites.fimDoTeste(new Date(), plano.dias_teste)) : null;
+        const testeAte = status === 'teste' ? (b.teste_ate ? new Date(b.teste_ate) : limites.fimDoTeste(new Date(), tabela.dias_teste)) : null;
         const cliente = await repos.clientes.criar({
             nome, slug: await repos.clientes.slugDisponivel(seg.gerarSlug(nome)), documento, email,
-            telefone: String(b.telefone || '').replace(/[^\d+]/g, ''), status, plano_id: plano.id, teste_ate: testeAte,
+            telefone: String(b.telefone || '').replace(/[^\d+]/g, ''), status, composicao: preco.composicao,
+            valor_mensal_centavos: valor, teste_ate: testeAte,
             limites_extra: validarLimitesExtra(b.limites_extra), observacoes: texto(b.observacoes, 2000)
         });
-        await repos.placares.criar(cliente.id, 'Quadra 1');
+        for (let i = 1; i <= preco.composicao.placares; i++) await repos.placares.criar(cliente.id, `Quadra ${i}`);
         if (b.convidarAdmin !== false) {
             const pessoa = { nome: texto(b.nomeAdmin) || nome, email, papel: 'admin' };
             if (senhaAdmin) await contas.criarComSenha(cliente.id, { ...pessoa, senha: senhaAdmin });
             else await contas.convidar(cliente.id, pessoa, req.usuario);
         }
-        await auditar(req, cliente.id, 'cliente_criado', { plano: plano.nome, status });
+        await auditar(req, cliente.id, 'cliente_criado', { plano: limites.resumoDaComposicao(preco.composicao, tabela), valor: valor / 100, status });
         res.status(201).json(cliente);
     });
 
@@ -112,11 +124,6 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
             campos.documento = String(b.documento).replace(/\D/g, '');
             if (campos.documento && !seg.documentoValido(campos.documento)) throw new ErroRegra('CPF ou CNPJ inválido.');
         }
-        if (b.plano_id !== undefined) {
-            const p = await repos.planos.obter(num(b.plano_id));
-            if (!p) throw new ErroRegra('Plano inexistente.');
-            campos.plano_id = p.id;
-        }
         if (b.status !== undefined) {
             if (!STATUS.includes(b.status)) throw new ErroRegra('Status inválido.');
             campos.status = b.status;
@@ -130,12 +137,18 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
         }
         if (b.limites_extra !== undefined) campos.limites_extra = validarLimitesExtra(b.limites_extra);
         if (b.observacoes !== undefined) campos.observacoes = texto(b.observacoes, 4000);
-        const c = await repos.clientes.atualizar(id, campos);
-        // Mudança de plano pelo painel também atualiza o valor no Asaas.
-        if (campos.plano_id && campos.plano_id !== atual.plano_id && atual.asaas_assinatura_id && b.atualizarCobranca !== false) {
-            await cobranca.assinar(id, campos.plano_id, req.usuario).catch(e => { throw new ErroRegra(`Plano trocado, mas o Asaas recusou: ${e.message}`, 502); });
+        // Plano on demand (itens e/ou valor negociado; valor null = preço da
+        // tabela). Com assinatura, o Asaas é atualizado antes de gravar.
+        if (b.composicao !== undefined || b.valor_mensal_centavos !== undefined) {
+            await cobranca.aplicarComposicao(id, b.composicao !== undefined ? b.composicao : atual.composicao, req.usuario, {
+                teto: false, valorCentavos: b.valor_mensal_centavos === '' ? null : b.valor_mensal_centavos
+            }).catch(e => { throw e instanceof ErroRegra ? e : new ErroRegra(`O Asaas recusou a mudança: ${e.message}`, 502); });
         }
-        await auditar(req, id, 'cliente_alterado', { campos: Object.keys(campos), ...(campos.status ? { de: atual.status, para: campos.status } : {}) });
+        const c = await repos.clientes.atualizar(id, campos);
+        // Só o plano mudou? aplicarComposicao já registrou "composicao_alterada".
+        if (Object.keys(campos).length) {
+            await auditar(req, id, 'cliente_alterado', { campos: Object.keys(campos), ...(campos.status ? { de: atual.status, para: campos.status } : {}) });
+        }
         res.json(c);
     });
 
@@ -266,44 +279,45 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
         res.json({ ok: true });
     });
 
-    // ---------------- Planos ----------------
-    function validarPlano(b) {
-        const p = {
-            nome: texto(b.nome, 60), descricao: texto(b.descricao, 400),
-            preco_centavos: Math.round(Number(b.preco_centavos)),
-            dias_teste: b.dias_teste === undefined ? 14 : Number(b.dias_teste),
-            publico: b.publico !== false, ativo: b.ativo !== false, ordem: Number(b.ordem) || 0,
-            esportes: Array.isArray(b.esportes) ? b.esportes.filter(x => limites.ESPORTES.includes(x)) : limites.ESPORTES,
-            recursos: {}
-        };
-        if (!p.nome) throw new ErroRegra('Nome do plano obrigatório.');
-        if (!Number.isInteger(p.preco_centavos) || p.preco_centavos < 0) throw new ErroRegra('Preço inválido.');
-        if (!Number.isInteger(p.dias_teste) || p.dias_teste < 0 || p.dias_teste > 90) throw new ErroRegra('Dias de teste entre 0 e 90.');
-        if (!p.esportes.length) throw new ErroRegra('Escolha ao menos um esporte.');
-        for (const k of limites.CAMPOS_NUMERICOS) {
+    // ---------------- Tabela de preços (plano on demand) ----------------
+    function validarPrecos(b) {
+        const p = {};
+        const inteiro = (k, min, max, rot) => {
+            if (b[k] === undefined) return;
             const n = Number(b[k]);
-            if (!Number.isInteger(n) || n < 0) throw new ErroRegra(`Valor inválido em ${k}.`);
+            if (!Number.isInteger(n) || n < min || (max !== undefined && n > max)) throw new ErroRegra(`${rot}: valor inválido.`);
             p[k] = n;
+        };
+        inteiro('preco_placar_centavos', 0, undefined, 'Preço do placar');
+        inteiro('preco_pacote_usuarios_centavos', 0, undefined, 'Preço do pacote de usuários');
+        inteiro('usuarios_por_pacote', 1, 1000, 'Usuários por pacote');
+        inteiro('jogos_por_placar', 0, 100000, 'Jogos por placar');
+        inteiro('armazenamento_mb_por_placar', 0, 10000000, 'Armazenamento por placar');
+        inteiro('dias_teste', 0, 90, 'Dias de teste');
+        inteiro('max_placares_autoatendimento', 1, 1000, 'Máximo de placares no site');
+        inteiro('max_pacotes_autoatendimento', 0, 1000, 'Máximo de pacotes no site');
+        if (b.precos_recursos !== undefined) {
+            p.precos_recursos = {};
+            for (const k of Object.keys(limites.RECURSOS)) {
+                const n = Number((b.precos_recursos || {})[k] ?? 0);
+                if (!Number.isInteger(n) || n < 0) throw new ErroRegra(`Preço de "${limites.RECURSOS[k].rotulo}" inválido.`);
+                p.precos_recursos[k] = n;
+            }
         }
-        for (const k of Object.keys(limites.RECURSOS)) p.recursos[k] = !!(b.recursos && b.recursos[k]);
         return p;
     }
 
-    r.get('/api/admin/planos', async (_req, res) => {
-        const planos = await repos.planos.listar();
-        const uso = await repos.db.varios(`SELECT plano_id, count(*) AS n FROM clientes GROUP BY plano_id`);
-        const porPlano = Object.fromEntries(uso.map(u => [u.plano_id, u.n]));
-        res.json({ planos: planos.map(p => ({ ...p, clientes: porPlano[p.id] || 0 })), recursos: limites.RECURSOS });
+    r.get('/api/admin/precos', async (_req, res) => {
+        const tabela = await repos.precos.obter();
+        const { n } = await repos.db.um(`SELECT count(*) AS n FROM clientes WHERE status <> 'cancelado'`);
+        res.json({ precos: tabela, recursos: limites.RECURSOS, clientes: n });
     });
-    r.post('/api/admin/planos', async (req, res) => {
-        const p = await repos.planos.criar(validarPlano(req.body || {}));
-        await auditar(req, null, 'plano_criado', { id: p.id, nome: p.nome });
-        res.status(201).json(p);
-    });
-    r.put('/api/admin/planos/:id', async (req, res) => {
-        const p = await repos.planos.atualizar(num(req.params.id), validarPlano(req.body || {}));
-        if (!p) throw new ErroRegra('Plano não encontrado.', 404);
-        await auditar(req, null, 'plano_alterado', { id: p.id, nome: p.nome });
+
+    // Vale para novos cadastros e para quem mudar o plano depois; quem já é
+    // cliente continua pagando o valor contratado.
+    r.put('/api/admin/precos', async (req, res) => {
+        const p = await repos.precos.atualizar(validarPrecos(req.body || {}));
+        await auditar(req, null, 'precos_alterados', {});
         res.json(p);
     });
 

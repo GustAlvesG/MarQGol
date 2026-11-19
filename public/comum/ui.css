@@ -143,3 +143,38 @@ select.campo { appearance: none; padding-right: 40px; background-image: linear-g
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .segurar.cheio .enche { transition: transform 1.2s linear !important; }
 }
+
+/* ---------- Montador do plano on demand (comum/montador.js) ---------- */
+.montador { display: flex; flex-direction: column; gap: 12px; }
+.mt-linha { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+.mt-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mt-txt b { font-family: var(--f-rot); font-weight: 800; font-size: 20px; letter-spacing: .03em; text-transform: uppercase; }
+.mt-txt span { color: var(--muted); font-size: 14px; line-height: 1.4; }
+.mt-passo { display: flex; align-items: center; gap: 4px; flex: none; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.mt-passo button { width: 44px; height: 44px; border-radius: 9px; background: var(--surface-3); color: var(--fg); font-size: 24px; font-weight: 700; line-height: 1; }
+.mt-passo button:disabled { opacity: .3; }
+.mt-passo output { min-width: 52px; text-align: center; font-family: var(--f-rot); font-weight: 800; font-size: 28px; }
+.mt-rotulo { font-family: var(--f-rot); font-weight: 700; font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: var(--amarelo); margin-top: 4px; }
+.mt-recursos { display: grid; gap: 8px; }
+.mt-recurso { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface-2); cursor: pointer; }
+.mt-recurso input { position: absolute; opacity: 0; pointer-events: none; }
+.mt-recurso .mt-txt { flex: 1; }
+.mt-recurso .mt-txt b { font-size: 18px; }
+.mt-check { width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line); display: grid; place-items: center; flex: none; color: transparent; font-size: 18px; }
+.mt-preco { font-family: var(--f-rot); font-weight: 800; font-size: 19px; white-space: nowrap; color: var(--muted); }
+.mt-recurso:has(input:checked) { border-color: var(--marca); background: #2a1418; }
+.mt-recurso:has(input:checked) .mt-check { background: var(--marca); border-color: var(--marca); color: var(--marca-texto); }
+.mt-recurso:has(input:checked) .mt-preco { color: var(--fg); }
+.mt-recurso:has(input:focus-visible) { outline: 3px solid #fff; outline-offset: 2px; }
+.mt-total { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.mt-itens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 15px; }
+.mt-itens li { display: flex; justify-content: space-between; gap: 12px; }
+.mt-soma { display: flex; align-items: baseline; gap: 8px; justify-content: flex-end; }
+.mt-soma span { font-family: var(--f-rot); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
+.mt-soma b { font-family: var(--f-rot); font-weight: 800; font-size: 40px; line-height: 1; color: var(--fg); }
+.mt-soma small { color: var(--muted); }
+@media (max-width: 560px) {
+  .mt-linha { flex-direction: column; align-items: stretch; }
+  .mt-passo { align-self: flex-start; }
+  .mt-recurso { flex-wrap: wrap; }
+}

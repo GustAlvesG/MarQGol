@@ -14,13 +14,13 @@
 <header class="site-topo"><a class="marca" href="/" aria-label="MarQGol"><svg class="marca-icone" viewBox="0 0 30 22" aria-hidden="true"><rect x="1" y="1" width="28" height="20" rx="4"/><path d="M11 8l8 6M19 8l-8 6"/></svg>Mar<span>Q</span>Gol</a><nav><a class="btn leve" href="/entrar">Já tenho conta</a></nav></header>
 <main class="caixa-form larga">
   <section class="cartao">
-    <h1>Teste grátis por 14 dias</h1>
-    <p>Sem cartão. No fim do teste você escolhe se assina — seus dados ficam guardados.</p>
+    <h1>Teste grátis por <span id="dias">14</span> dias</h1>
+    <p>Sem cartão. Monte o plano do seu jeito: durante o teste você usa tudo o que escolher e, no fim, decide se assina. Dá para mudar depois.</p>
     <div id="msg" hidden></div>
     <form id="form" novalidate>
       <div>
-        <span class="rotulo">Plano para o teste</span>
-        <div class="escolha-plano" id="planos"><span class="vazio">Carregando…</span></div>
+        <span class="rotulo">Seu plano</span>
+        <div id="montador"><span class="vazio">Carregando…</span></div>
       </div>
       <div class="grade-2">
         <div><label class="rotulo" for="nomeCliente">Clube, escola ou organização</label><input class="campo" id="nomeCliente" maxlength="120" required></div>
@@ -41,17 +41,20 @@
 </main>
 <script src="/comum/ui.js"></script>
 <script src="/comum/marq.js"></script>
+<script src="/comum/montador.js"></script>
 <script>
 const q = new URLSearchParams(location.search);
 const msg = document.getElementById('msg');
 function mostrar(texto) { msg.className = 'erro-form'; msg.textContent = texto; msg.hidden = false; msg.scrollIntoView({ block: 'nearest' }); }
 
-MARQ.api('GET', '/api/publico/planos').then(planos => {
-    const escolhido = Number(q.get('plano')) || (planos[0] && planos[0].id);
-    document.getElementById('planos').innerHTML = planos.map(p => `
-      <label><input type="radio" name="plano" value="${p.id}" ${p.id === escolhido ? 'checked' : ''}>
-        <b>${esc(p.nome)}</b><span>${esc(MARQ.dinheiro(p.preco_centavos))}/mês · ${p.max_placares} placar${p.max_placares === 1 ? '' : 'es'}</span></label>`).join('');
-}).catch(() => { document.getElementById('planos').innerHTML = '<span class="vazio">Não foi possível carregar os planos.</span>'; });
+// Plano montado na página inicial chega pela URL; senão, 1 placar com mídia.
+let montador = null;
+MARQ.api('GET', '/api/publico/precos').then(tabela => {
+    document.getElementById('dias').textContent = tabela.dias_teste;
+    montador = MONTADOR.criar(document.getElementById('montador'), {
+        tabela, composicao: MONTADOR.daUrl(q) || { placares: 1, recursos: { midia: true } }
+    });
+}).catch(() => { document.getElementById('montador').innerHTML = '<span class="vazio">Não foi possível carregar os preços. Recarregue a página.</span>'; });
 
 // Máscara simples de CPF/CNPJ (só para leitura; o servidor guarda dígitos).
 document.getElementById('documento').addEventListener('input', (e) => {
@@ -69,9 +72,9 @@ document.getElementById('form').addEventListener('submit', async (ev) => {
     btn.disabled = true;
     msg.hidden = true;
     try {
-        const plano = document.querySelector('input[name="plano"]:checked');
+        if (!montador) throw new Error('Os preços ainda não carregaram. Recarregue a página.');
         const r = await MARQ.api('POST', '/api/auth/cadastro', {
-            planoId: plano ? Number(plano.value) : undefined,
+            composicao: montador.composicao(),
             nomeCliente: v('nomeCliente'), documento: v('documento'), telefone: v('telefone'),
             nome: v('nome'), email: v('email'), senha: v('senha')
         });

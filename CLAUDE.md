@@ -24,8 +24,9 @@ a documentação em `docs/` (e este arquivo, se a mudança afetar algo listado a
 Placar eletrônico em tempo real para **futsal, basquete e vôlei**, multi-cliente.
 Cada **cliente** (clube, escola, liga) tem **placares** (quadras), cada placar
 tem seu jogo, seu controle (tablet) e suas TVs pareadas. O cliente agenda jogos,
-cadastra times e jogadores, e assina um **plano** com limites. O dono do SaaS
-(superadmin) gerencia clientes, planos e limites em `/admin`.
+cadastra times e jogadores, e monta o próprio **plano on demand** (placares,
+pacotes de usuários, recursos especiais). O dono do SaaS (superadmin) gerencia
+clientes, a tabela de preços e limites em `/admin`.
 
 - Backend: Node.js 22+ + Express 5 + Socket.IO 4 + **PostgreSQL** (`pg`).
 - Frontend: HTML/CSS/JS puro em `public/`. **Sem build, sem framework, sem bundler.**
@@ -36,7 +37,7 @@ cadastra times e jogadores, e assina um **plano** com limites. O dono do SaaS
 
 ```bash
 npm run db             # Postgres de dev embutido (porta 5433, pasta .pgdata/) — deixe num terminal
-npm run dev            # nodemon; em dev o servidor migra e cria planos/superadmin sozinho
+npm run dev            # nodemon; em dev o servidor migra e cria o superadmin sozinho
 npm start              # node server.js
 npm test               # sobe Postgres descartável e roda node --test (unitários + ponta a ponta)
 npm run test:unit      # só node --test (testes de banco são pulados sem TEST_DATABASE_URL)
@@ -64,7 +65,7 @@ A porta 4000 costuma estar ocupada pelo servidor de dev do usuário.
 | [src/config.js](src/config.js) | Única leitura de `process.env`. |
 | [src/db/](src/db/) | Pool `pg`, migrador (`migrations/*.sql`, sem "down"). |
 | [src/repos.js](src/repos.js) | **Todo SQL de negócio.** Funções de dado de cliente recebem `clienteId` e o põem no WHERE. |
-| [src/limites.js](src/limites.js) | Limites/recursos de plano (puro). |
+| [src/limites.js](src/limites.js) | Limites/recursos e plano on demand: `normalizarComposicao`, `limitesDaComposicao`, `precoDaComposicao` (puro; espelhado só para exibição em `public/comum/montador.js`). |
 | [src/auth.js](src/auth.js) | Sessão (Postgres), papéis, "entrar como", cookie de TV (`marq_tela`), CSRF por cabeçalho `X-MarQ`. |
 | [src/placares/gerenciador.js](src/placares/gerenciador.js) | Um estado por placar em memória + gravação no banco (~1 s), sala Socket.IO `placar:<id>`, súmula. |
 | [src/placares/sockets.js](src/placares/sockets.js) | Autorização do socket e handlers (mesmos eventos do sistema antigo, por sala). |
@@ -106,7 +107,15 @@ precisa → `payloadEstado()` em `gerenciador.js`; **não reimplemente regra no 
 - Limite de **placares** = placares ativos. Limite de **jogos** = jogos com status
   `agendado` ou `ao_vivo`; encerrar/cancelar libera. Agendado vencido há **24 h**
   sem começar vira `expirado` (libera; pode ser reagendado).
-- Teste de **14 dias** (por plano, `dias_teste`), sem marca d'água. Fim do teste:
+- **Plano on demand** (sem planos fixos): `clientes.composicao` = `{ placares,
+  pacotes_usuarios_extras, recursos }`; preço = placares × preço do placar +
+  pacotes extras (o 1º pacote de usuários é incluso) + recursos ligados (valor
+  fixo por conta). Jogos em aberto e armazenamento = cota por placar. Tudo vem
+  da `tabela_precos` (uma linha, editada em /admin → Preços). O valor fica
+  congelado em `clientes.valor_mensal_centavos` (ou negociado no painel): mudar
+  a tabela não altera quem já é cliente. Mudança de composição passa por
+  `cobranca.aplicarComposicao` (atualiza o Asaas se houver assinatura).
+- Teste de **14 dias** (`tabela_precos.dias_teste`), sem marca d'água. Fim do teste:
   sem assinatura → `suspenso`; com fatura aberta → `inadimplente`. Inadimplente
   há 7 dias → `suspenso`. Pagamento confirmado (webhook) → `ativo`.
 - A primeira cobrança vence no fim do teste. `billingType: UNDEFINED` (quem paga

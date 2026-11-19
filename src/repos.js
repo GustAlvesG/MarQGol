@@ -2,7 +2,7 @@
 // função que toca dado de cliente recebe `clienteId` e o coloca no WHERE —
 // mesmo quando o id do registro já seria único. É isso que impede um clube de
 // enxergar (ou alterar) o dado de outro por um id adivinhado.
-const { limitesEfetivos, STATUS_JOGO_ABERTO } = require('./limites');
+const { limitesEfetivos, limitesDaComposicao, STATUS_JOGO_ABERTO } = require('./limites');
 
 // placarEventos formata `ocorrido_em` como 'Y-m-d H:i:s.v' na hora LOCAL do
 // Node; sem o 'Z', o Date do JS também lê como hora local — volta ao mesmo
@@ -13,25 +13,31 @@ function dataDoEvento(texto) {
 }
 
 function criarRepos(db) {
-    // ---------------- Planos ----------------
-    const planos = {
-        listar: ({ soAtivos = false, soPublicos = false } = {}) => db.varios(
-            `SELECT * FROM planos WHERE ($1::bool = false OR ativo) AND ($2::bool = false OR publico)
-             ORDER BY ordem, id`, [soAtivos, soPublicos]),
-        obter: (id) => db.um('SELECT * FROM planos WHERE id = $1', [id]),
-        criar: (p) => db.um(
-            `INSERT INTO planos (nome, descricao, preco_centavos, max_placares, max_jogos_abertos, max_usuarios,
-                max_armazenamento_mb, esportes, recursos, dias_teste, publico, ativo, ordem)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-            [p.nome, p.descricao || '', p.preco_centavos, p.max_placares, p.max_jogos_abertos, p.max_usuarios,
-                p.max_armazenamento_mb, p.esportes, p.recursos || {}, p.dias_teste ?? 14, p.publico ?? true, p.ativo ?? true, p.ordem ?? 0]),
-        atualizar: (id, p) => db.um(
-            `UPDATE planos SET nome=$2, descricao=$3, preco_centavos=$4, max_placares=$5, max_jogos_abertos=$6,
-                max_usuarios=$7, max_armazenamento_mb=$8, esportes=$9, recursos=$10, dias_teste=$11, publico=$12,
-                ativo=$13, ordem=$14
-             WHERE id=$1 RETURNING *`,
-            [id, p.nome, p.descricao || '', p.preco_centavos, p.max_placares, p.max_jogos_abertos, p.max_usuarios,
-                p.max_armazenamento_mb, p.esportes, p.recursos || {}, p.dias_teste ?? 14, p.publico ?? true, p.ativo ?? true, p.ordem ?? 0])
+    // ---------------- Tabela de preços (plano on demand) ----------------
+    // Uma linha só. Lida a cada verificação de limite: guarda em memória e
+    // limpa quando o painel altera (um processo só, ver CLAUDE.md).
+    let cachePrecos = null;
+    const CAMPOS_PRECOS = ['preco_placar_centavos', 'preco_pacote_usuarios_centavos', 'usuarios_por_pacote',
+        'precos_recursos', 'jogos_por_placar', 'armazenamento_mb_por_placar', 'dias_teste',
+        'max_placares_autoatendimento', 'max_pacotes_autoatendimento'];
+    const precos = {
+        CAMPOS: CAMPOS_PRECOS,
+        async obter() {
+            if (!cachePrecos) cachePrecos = await db.um('SELECT * FROM tabela_precos WHERE id = 1');
+            return cachePrecos;
+        },
+        async atualizar(campos) {
+            const sets = [], valores = [];
+            for (const k of CAMPOS_PRECOS) {
+                if (campos[k] === undefined) continue;
+                valores.push(campos[k]);
+                sets.push(`${k} = $${valores.length}`);
+            }
+            cachePrecos = null;
+            if (!sets.length) return precos.obter();
+            cachePrecos = await db.um(`UPDATE tabela_precos SET ${sets.join(', ')}, atualizado_em = now() WHERE id = 1 RETURNING *`, valores);
+            return cachePrecos;
+        }
     };
 
     // ---------------- Clientes ----------------
@@ -45,13 +51,14 @@ function criarRepos(db) {
             return slug;
         },
         criar: (c, tx = db) => tx.um(
-            `INSERT INTO clientes (nome, slug, documento, email, telefone, status, plano_id, teste_ate, limites_extra, observacoes)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-            [c.nome, c.slug, c.documento || '', c.email, c.telefone || '', c.status || 'teste', c.plano_id,
-                c.teste_ate || null, c.limites_extra || {}, c.observacoes || '']),
+            `INSERT INTO clientes (nome, slug, documento, email, telefone, status, composicao, valor_mensal_centavos,
+                                   teste_ate, limites_extra, observacoes)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+            [c.nome, c.slug, c.documento || '', c.email, c.telefone || '', c.status || 'teste', c.composicao,
+                c.valor_mensal_centavos ?? 0, c.teste_ate || null, c.limites_extra || {}, c.observacoes || '']),
         // Só os campos passados mudam.
         async atualizar(id, campos) {
-            const permitidos = ['nome', 'documento', 'email', 'telefone', 'status', 'plano_id', 'teste_ate',
+            const permitidos = ['nome', 'documento', 'email', 'telefone', 'status', 'composicao', 'valor_mensal_centavos', 'teste_ate',
                 'inadimplente_desde', 'limites_extra', 'observacoes', 'arte', 'asaas_cliente_id',
                 'asaas_assinatura_id', 'proximo_vencimento'];
             const sets = [], valores = [id];
@@ -65,12 +72,12 @@ function criarRepos(db) {
         },
         // Lista do painel de gestão com o uso de cada cliente.
         listarComUso: ({ busca = '', status = '' } = {}) => db.varios(
-            `SELECT c.*, p.nome AS plano_nome,
+            `SELECT c.*,
                 (SELECT count(*) FROM placares x WHERE x.cliente_id = c.id AND x.ativo) AS uso_placares,
                 (SELECT count(*) FROM jogos j WHERE j.cliente_id = c.id AND j.status = ANY($3)) AS uso_jogos_abertos,
                 (SELECT count(*) FROM usuarios u WHERE u.cliente_id = c.id AND u.ativo) AS uso_usuarios,
                 (SELECT max(u.ultimo_login_em) FROM usuarios u WHERE u.cliente_id = c.id) AS ultimo_acesso_em
-             FROM clientes c LEFT JOIN planos p ON p.id = c.plano_id
+             FROM clientes c
              WHERE ($1 = '' OR c.nome ILIKE '%' || $1 || '%' OR c.email ILIKE '%' || $1 || '%' OR c.slug ILIKE '%' || $1 || '%')
                AND ($2 = '' OR c.status = $2)
              ORDER BY c.criado_em DESC`, [busca, status, STATUS_JOGO_ABERTO]),
@@ -86,8 +93,7 @@ function criarRepos(db) {
         async limites(clienteOuId) {
             const c = typeof clienteOuId === 'object' ? clienteOuId : await clientes.obter(clienteOuId);
             if (!c) return null;
-            const plano = c.plano_id ? await planos.obter(c.plano_id) : null;
-            return limitesEfetivos(plano, c.limites_extra);
+            return limitesEfetivos(limitesDaComposicao(c.composicao, await precos.obter()), c.limites_extra);
         },
         async uso(clienteId) {
             return db.um(
@@ -105,8 +111,8 @@ function criarRepos(db) {
                 (SELECT count(*) FROM clientes WHERE status = 'ativo') AS ativos,
                 (SELECT count(*) FROM clientes WHERE status = 'inadimplente') AS inadimplentes,
                 (SELECT count(*) FROM clientes WHERE status IN ('suspenso', 'cancelado')) AS inativos,
-                (SELECT coalesce(sum(p.preco_centavos), 0) FROM clientes c JOIN planos p ON p.id = c.plano_id
-                   WHERE c.status IN ('ativo', 'inadimplente')) AS receita_mensal_centavos,
+                (SELECT coalesce(sum(valor_mensal_centavos), 0) FROM clientes
+                   WHERE status IN ('ativo', 'inadimplente')) AS receita_mensal_centavos,
                 (SELECT count(*) FROM jogos WHERE status = 'ao_vivo') AS jogos_ao_vivo,
                 (SELECT count(*) FROM jogos WHERE status = 'encerrado' AND encerrado_em > now() - interval '30 days') AS jogos_30_dias`)
     };
@@ -388,7 +394,7 @@ function criarRepos(db) {
              WHERE ($1::int IS NULL OR a.cliente_id = $1) ORDER BY a.id DESC LIMIT $2`, [clienteId, limite])
     };
 
-    return { db, planos, clientes, usuarios, tokens, placares, telas, times, jogadores, jogos, faturas, auditoria };
+    return { db, precos, clientes, usuarios, tokens, placares, telas, times, jogadores, jogos, faturas, auditoria };
 }
 
 module.exports = { criarRepos };

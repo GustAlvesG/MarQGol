@@ -9,7 +9,7 @@ const { migrar } = require('../../src/db/migrar');
 const URL_BASE = process.env.TEST_DATABASE_URL || '';
 const temBanco = !!URL_BASE;
 
-async function criarBancoDeTeste() {
+async function criarBancoDeTeste({ semMigrar = false } = {}) {
     const nome = 't_' + crypto.randomBytes(6).toString('hex');
     const admin = new Client({ connectionString: URL_BASE });
     await admin.connect();
@@ -18,7 +18,7 @@ async function criarBancoDeTeste() {
     const url = new URL(URL_BASE);
     url.pathname = '/' + nome;
     const db = criarDb(url.toString());
-    await migrar(db);
+    if (!semMigrar) await migrar(db);
     db.url = url.toString();
     const fecharOriginal = db.fechar;
     db.fechar = async () => {

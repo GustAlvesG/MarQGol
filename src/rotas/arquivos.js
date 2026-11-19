@@ -123,7 +123,7 @@ function rotasArquivos({ repos, armazenamento, gerenciador, cfg, mw }) {
         const maxArquivo = cfg.maxUploadMb * 1024 * 1024;
         const declarado = Number(req.headers['content-length'] || 0);
         if (declarado > restante || restante <= 0) {
-            throw new ErroRegra(`Sem espaço: seu plano permite ${lim.max_armazenamento_mb} MB de arquivos. Apague arquivos antigos ou troque de plano.`, 413, 'limite');
+            throw new ErroRegra(`Sem espaço: seu plano permite ${lim.max_armazenamento_mb} MB de arquivos. Apague arquivos antigos ou contrate mais placares em Assinatura.`, 413, 'limite');
         }
         if (declarado > maxArquivo) throw new ErroRegra(`Arquivo grande demais (máximo ${cfg.maxUploadMb} MB por arquivo).`, 413);
         return { lim, maximo: Math.min(restante, maxArquivo) };
@@ -148,7 +148,7 @@ function rotasArquivos({ repos, armazenamento, gerenciador, cfg, mw }) {
         const clienteId = req.usuario.clienteId;
         // Recurso antes do espaço: quem não tem mídia no plano precisa ouvir isso.
         if (!limites.recursoPermitido('midia', await repos.clientes.limites(clienteId))) {
-            throw new ErroRegra('Comerciais, slides e patrocinadores não fazem parte do seu plano.', 403, 'limite');
+            throw new ErroRegra('Comerciais, slides e patrocinadores não fazem parte do seu plano. Inclua em Assinatura.', 403, 'limite');
         }
         const { maximo } = await limiteDeBytes(clienteId, req);
         const nome = logic.sanitizarNomeArquivo(req.query.nome);
@@ -181,7 +181,7 @@ function rotasArquivos({ repos, armazenamento, gerenciador, cfg, mw }) {
         const clienteId = req.usuario.clienteId;
         const { lim, maximo } = await limiteDeBytes(clienteId, req);
         if (req.params.tipo === 'video-jogador' && !limites.recursoPermitido('video_jogador', lim)) {
-            throw new ErroRegra('Vídeo de jogador não faz parte do seu plano.', 403, 'limite');
+            throw new ErroRegra('Vídeo do atleta não faz parte do seu plano. Inclua em Assinatura.', 403, 'limite');
         }
         const ext = path.extname(logic.sanitizarNomeArquivo(req.query.nome) || '').toLowerCase();
         if (!def.extensoes.includes(ext)) throw new ErroRegra(`Extensão não permitida (aceitas: ${def.extensoes.join(', ')})`, 400);
@@ -256,7 +256,7 @@ function rotasArquivos({ repos, armazenamento, gerenciador, cfg, mw }) {
         if (req.usuario.impersonando) return; // suporte pode sempre
         const lim = await repos.clientes.limites(req.usuario.clienteId);
         if (!limites.recursoPermitido('arte_propria', lim)) {
-            throw new ErroRegra('Arte própria não faz parte do seu plano. Fale com o suporte ou troque de plano.', 403, 'limite');
+            throw new ErroRegra('Arte própria não faz parte do seu plano. Inclua em Assinatura.', 403, 'limite');
         }
     }
 

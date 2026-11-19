@@ -23,8 +23,8 @@ Migração nova = arquivo `NNN_nome.sql` (sem "down"); `npm run migrate` aplica.
 
 | Tabela | Conteúdo |
 |---|---|
-| `planos` | preço, `max_placares`, `max_jogos_abertos`, `max_usuarios`, `max_armazenamento_mb`, `esportes`, `recursos` (`midia`, `video_jogador`, `arte_propria`), `dias_teste`, `publico`, `ativo` |
-| `clientes` | dados de cobrança, `status` (`teste`, `ativo`, `inadimplente`, `suspenso`, `cancelado`), `plano_id`, `teste_ate`, `limites_extra` (ajuste individual), `arte` (versão/bordas), ids do Asaas |
+| `tabela_precos` | uma linha (migração 002): preço por placar, preço e tamanho do pacote de usuários, `precos_recursos` (`midia`, `video_jogador`, `arte_propria`), jogos e MB por placar, `dias_teste`, tetos do autoatendimento |
+| `clientes` | dados de cobrança, `status` (`teste`, `ativo`, `inadimplente`, `suspenso`, `cancelado`), `composicao` (plano on demand), `valor_mensal_centavos` (congelado ou negociado), `teste_ate`, `limites_extra` (ajuste individual), `arte` (versão/bordas), ids do Asaas |
 | `usuarios` | `papel` `superadmin` (sem cliente), `admin`, `operador`; senha scrypt |
 | `tokens` | verificação de e-mail, convite, redefinição de senha (só hash) |
 | `sessoes` | sessões (connect-pg-simple) |
@@ -50,7 +50,7 @@ Migração nova = arquivo `NNN_nome.sql` (sem "down"); `npm run migrate` aplica.
 
 ## 4. Rotas HTTP
 
-Públicas: `GET /api/health`, `GET /api/publico/planos`, `POST /api/auth/cadastro|entrar|sair|esqueci-senha|redefinir-senha|aceitar-convite|reenviar-verificacao`,
+Públicas: `GET /api/health`, `GET /api/publico/precos`, `POST /api/auth/cadastro|entrar|sair|esqueci-senha|redefinir-senha|aceitar-convite|reenviar-verificacao`,
 `GET /api/auth/eu|convite|verificar-email`, `POST /api/asaas/webhook`.
 
 Área do cliente (`/api/app`, sessão de cliente; ✱ = só admin):
@@ -60,7 +60,8 @@ times (`GET`, `POST`, `PATCH :id`, `DELETE :id`, `GET/POST :id/jogadores`), `PAT
 jogos (`GET ?data&de&ate&status&placar`, `POST`, `GET :id` com súmula, `PATCH :id`,
 `POST :id/cancelar`, `POST :id/reagendar`, `PUT :id/escalacao/:timeId`);
 usuários✱ (`GET`, `POST` — com `senha` cria já com acesso, sem `senha` manda convite —, `PATCH :id` (`papel`, `ativo`, `nome`, `senha`), `DELETE :id`, `POST :id/reenviar`);
-assinatura (`GET`, `POST`✱ `{planoId}`, `POST atualizar`✱, `POST cancelar`✱);
+`PUT composicao`✱ `{composicao}` (monta/muda o plano; atualiza o Asaas se assinado);
+assinatura (`GET` com tabela e detalhamento, `POST`✱ assina o valor atual, `POST atualizar`✱, `POST cancelar`✱);
 arquivos (`POST arquivos/foto|video-jogador?nome=`); arte (`GET arte`, `PUT/DELETE arte/<slot>`✱, `POST arte-bordas`✱).
 
 Mídia: `GET /api/midia`, `POST /api/midia/:tipo?nome=`, `DELETE /api/midia/:tipo/:nome`.
@@ -69,7 +70,8 @@ Painel (`/api/admin`, só superadmin): `indicadores`, `clientes` (lista, detalhe
 criar — com `senhaAdmin` o admin do cliente já nasce com senha —, `PATCH`, `DELETE` com slug, `:id/entrar`,
 `:id/reenviar-acesso`, `:id/arte*`, `:id/usuarios` `POST` e `:id/usuarios/:uid` `PATCH`/`DELETE`),
 `superadmins` (`GET`, `POST`, `PATCH :id`, `DELETE :id`; não remove/desativa a si mesmo nem o último ativo),
-`sair-cliente`, `planos` (`GET`, `POST`, `PUT :id`), `auditoria`, `revisar-status`.
+`sair-cliente`, `precos` (`GET`, `PUT`), `auditoria`, `revisar-status`. Criar/alterar cliente aceita
+`composicao` (sem teto) e `valor_mensal_centavos` (negociado; `null` = preço de tabela).
 
 **Sem SMTP** (`SMTP_HOST` vazio): `GET /api/auth/eu` e o resumo trazem `emailAtivo: false`; as telas
 passam a oferecer "Definir senha agora" no lugar do convite e escondem o aviso de confirmar e-mail.
@@ -91,7 +93,7 @@ técnica, agora por sala. `placar_chamar` atende `ping`, `listarJogos`,
 ## 6. Ciclo do cliente e cobrança
 
 ```
-cadastro ─▶ teste (dias_teste do plano)
+cadastro ─▶ teste (dias_teste da tabela de preços)
 teste ──assina + paga──▶ ativo
 teste vencido ──sem assinatura──▶ suspenso
 teste vencido ──com fatura aberta──▶ inadimplente
@@ -101,7 +103,7 @@ cancelar (cliente ou painel) ──▶ cancelado
 ```
 
 - Assinar: cria cliente e assinatura no Asaas (`billingType: UNDEFINED`, mensal,
-  1º vencimento no fim do teste). Trocar de plano: `PUT /subscriptions/:id` com
+  1º vencimento no fim do teste). Mudar a composição: `PUT /subscriptions/:id` com
   `updatePendingPayments`.
 - Webhook: cadastre no painel do Asaas `https://<DOMAIN>/api/asaas/webhook` com o
   token `ASAAS_WEBHOOK_TOKEN`. Eventos tratados: `PAYMENT_CREATED/UPDATED/CONFIRMED/RECEIVED/OVERDUE/DELETED/REFUNDED`, `SUBSCRIPTION_DELETED/INACTIVATED`.
@@ -120,8 +122,8 @@ Primeiro deploy:
 1. DNS na Hostinger: registro A `marqgol` → IP da VPS (TTL 300).
 2. Na VPS: `site novo <url do repositório>` (branch `saas`); preencha o `.env`
    (`SUPERADMIN_EMAIL`, dados do Asaas e SMTP). Segredos vazios são gerados.
-3. O `pos_subida` roda `migrate`: cria tabelas, os 3 planos iniciais e o superadmin.
-4. Entre em `https://marqgol.artzan.tech/entrar` com o superadmin e ajuste planos/preços.
+3. O `pos_subida` roda `migrate`: cria tabelas, a tabela de preços (valores de exemplo) e o superadmin.
+4. Entre em `https://marqgol.artzan.tech/entrar` com o superadmin e ajuste a tabela de preços (/admin → Preços).
 5. No Asaas (produção): chave de API em `ASAAS_API_KEY`, `ASAAS_API_URL=https://api.asaas.com/v3`,
    webhook apontando para `/api/asaas/webhook` com o token do `.env`.
 

@@ -10,6 +10,7 @@
 // Suspensão nunca derruba um jogo ao vivo: só bloqueia novos jogos e cadastros.
 const { faturaDoPagamento, STATUS_PAGO } = require('./asaas');
 const { ErroRegra } = require('./agenda');
+const limites = require('../limites');
 
 const DIAS_TOLERANCIA = 7;
 
@@ -19,8 +20,9 @@ function hojeIso(d = new Date()) {
 }
 
 function criarCobranca({ repos, asaas, email, cfg }) {
-    function descricao(plano) {
-        return `MarQGol — plano ${plano.nome}`;
+    // Aparece na fatura do Asaas: "MarQGol — 2 placares · 10 usuários · mídia".
+    function descricao(composicao, tabela) {
+        return `MarQGol — ${limites.resumoDaComposicao(composicao, tabela)}`;
     }
 
     async function garantirClienteAsaas(cliente) {
@@ -42,31 +44,49 @@ function criarCobranca({ repos, asaas, email, cfg }) {
         return lista;
     }
 
-    // Assina (ou troca de plano, se já assinou). A primeira cobrança vence no
-    // fim do teste — quem assina no 3º dia não perde os outros 11.
-    async function assinar(clienteId, planoId, usuario) {
+    // Muda o que o cliente contrata (plano on demand). O valor é recalculado
+    // pela tabela de preços atual — ou `valorCentavos` (preço negociado, só
+    // pelo painel). Com assinatura no Asaas, o valor é atualizado lá também.
+    // Reduzir placares não apaga nada: o excedente fica sem operar até o
+    // cliente desativar um placar (placar_excedente).
+    async function aplicarComposicao(clienteId, composicao, usuario, { teto = true, valorCentavos } = {}) {
         const cliente = await repos.clientes.obter(clienteId);
-        const plano = await repos.planos.obter(Number(planoId));
-        if (!plano || !plano.ativo) throw new ErroRegra('Plano indisponível.');
-        if (cliente.status === 'cancelado') throw new ErroRegra('Conta cancelada. Fale com o suporte para reativar.', 409);
-
-        // Downgrade: os limites novos precisam caber no que já existe? Não
-        // bloqueia — o excedente fica inativo depois (ver troca de plano no painel).
+        if (cliente.status === 'cancelado' && teto) throw new ErroRegra('Conta cancelada. Fale com o suporte para reativar.', 409);
+        const tabela = await repos.precos.obter();
+        const preco = limites.precoDaComposicao(limites.normalizarComposicao(composicao, tabela, { teto }), tabela);
+        const valor = valorCentavos === undefined || valorCentavos === null ? preco.total : Math.round(Number(valorCentavos));
+        if (!Number.isInteger(valor) || valor < 0) throw new ErroRegra('Valor mensal inválido.');
         if (cliente.asaas_assinatura_id) {
-            await asaas.atualizarAssinatura(cliente.asaas_assinatura_id, { valorCentavos: plano.preco_centavos, descricao: descricao(plano) });
-            await repos.clientes.atualizar(clienteId, { plano_id: plano.id });
-        } else {
-            const clienteAsaas = await garantirClienteAsaas(cliente);
-            const hoje = hojeIso();
-            const fimTeste = cliente.status === 'teste' && cliente.teste_ate ? hojeIso(new Date(cliente.teste_ate)) : hoje;
-            const vencimento = fimTeste > hoje ? fimTeste : hoje;
-            const r = await asaas.criarAssinatura({
-                clienteAsaas, valorCentavos: plano.preco_centavos, proximoVencimento: vencimento,
-                descricao: descricao(plano), referencia: cliente.id
-            });
-            await repos.clientes.atualizar(clienteId, { plano_id: plano.id, asaas_assinatura_id: r.id, proximo_vencimento: vencimento });
+            if (valor <= 0) throw new ErroRegra('Com assinatura no Asaas o valor mensal precisa ser maior que zero.');
+            await asaas.atualizarAssinatura(cliente.asaas_assinatura_id, { valorCentavos: valor, descricao: descricao(preco.composicao, tabela) });
         }
-        await repos.auditoria.registrar({ usuarioId: usuario?.id, clienteId, acao: 'assinatura', dados: { plano: plano.nome } });
+        const c = await repos.clientes.atualizar(clienteId, { composicao: preco.composicao, valor_mensal_centavos: valor });
+        await repos.auditoria.registrar({
+            usuarioId: usuario?.id, clienteId, acao: 'composicao_alterada',
+            dados: { plano: limites.resumoDaComposicao(preco.composicao, tabela), valor: valor / 100, ...(valor !== preco.total ? { preco_negociado: true } : {}) }
+        });
+        return c;
+    }
+
+    // Assina com a composição e o valor atuais do cliente. A primeira cobrança
+    // vence no fim do teste — quem assina no 3º dia não perde os outros 11.
+    async function assinar(clienteId, usuario) {
+        const cliente = await repos.clientes.obter(clienteId);
+        if (cliente.status === 'cancelado') throw new ErroRegra('Conta cancelada. Fale com o suporte para reativar.', 409);
+        if (cliente.asaas_assinatura_id) throw new ErroRegra('A assinatura já está ativa. Para mudar o plano, altere os itens contratados.', 409);
+        const valor = Number(cliente.valor_mensal_centavos) || 0;
+        if (valor <= 0) throw new ErroRegra('Monte o plano (placares e recursos) antes de assinar.');
+        const tabela = await repos.precos.obter();
+        const clienteAsaas = await garantirClienteAsaas(cliente);
+        const hoje = hojeIso();
+        const fimTeste = cliente.status === 'teste' && cliente.teste_ate ? hojeIso(new Date(cliente.teste_ate)) : hoje;
+        const vencimento = fimTeste > hoje ? fimTeste : hoje;
+        const r = await asaas.criarAssinatura({
+            clienteAsaas, valorCentavos: valor, proximoVencimento: vencimento,
+            descricao: descricao(cliente.composicao, tabela), referencia: cliente.id
+        });
+        await repos.clientes.atualizar(clienteId, { asaas_assinatura_id: r.id, proximo_vencimento: vencimento });
+        await repos.auditoria.registrar({ usuarioId: usuario?.id, clienteId, acao: 'assinatura', dados: { plano: limites.resumoDaComposicao(cliente.composicao, tabela), valor: valor / 100 } });
         const atualizado = await repos.clientes.obter(clienteId);
         await sincronizarFaturas(atualizado).catch(() => {});
         return atualizado;
@@ -159,7 +179,7 @@ function criarCobranca({ repos, asaas, email, cfg }) {
         return mudancas;
     }
 
-    return { assinar, cancelar, processarWebhook, revisarStatus, sincronizarFaturas, DIAS_TOLERANCIA };
+    return { aplicarComposicao, assinar, cancelar, processarWebhook, revisarStatus, sincronizarFaturas, DIAS_TOLERANCIA };
 }
 
 module.exports = { criarCobranca, hojeIso, DIAS_TOLERANCIA };

@@ -193,7 +193,12 @@
         $('#topo-usuario').innerHTML = `${ic('user')}<span>${esc(u.nome)} <small>· ${u.papel === 'admin' ? 'Administrador' : 'Operador'}</small></span>`;
         const tagPlano = $('#topo-plano');
         tagPlano.hidden = !R.plano;
-        if (R.plano) tagPlano.textContent = 'Plano ' + R.plano.nome;
+        if (R.plano) {
+            // Plano on demand não tem nome: o chip mostra o essencial e o resumo completo fica no title.
+            const n = num(R.limites && R.limites.max_placares) || num(R.plano.composicao && R.plano.composicao.placares);
+            tagPlano.textContent = n ? `Plano · ${n} placar${n === 1 ? '' : 'es'}` : 'Plano sob medida';
+            tagPlano.title = R.plano.resumo || '';
+        }
         document.title = `MarQGol — ${c.nome}`;
 
         // Menu
@@ -336,7 +341,7 @@
         const placares = R.placares || [];
 
         ctx.el.innerHTML = `
-        ${tituloPagina('Olá, ' + (R.usuario.nome || '').split(' ')[0], 'Visão geral de ' + esc(R.cliente.nome) + (R.plano ? ' · plano ' + esc(R.plano.nome) : ''))}
+        ${tituloPagina('Olá, ' + (R.usuario.nome || '').split(' ')[0], 'Visão geral de ' + esc(R.cliente.nome) + (R.plano && R.plano.resumo ? ' · ' + esc(R.plano.resumo) : ''))}
         <section class="grade-uso" aria-label="Uso do plano">
             ${cartaoUso('tv', 'Placares ativos', num(U.max_placares), num(L.max_placares))}
             ${cartaoUso('calendar', 'Jogos em aberto', num(U.max_jogos_abertos), num(L.max_jogos_abertos), null, 'Agendados ou ao vivo')}
