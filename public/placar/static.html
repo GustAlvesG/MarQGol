@@ -81,8 +81,9 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+<script src="/comum/marq.js"></script>
     <script>
-        const socket = io();
+        const socket = MARQ.conectar({ telaSoLeitura: true });
 
         function mostrarSets(mostrar) {
             document.getElementById('area_sets').hidden = !mostrar;

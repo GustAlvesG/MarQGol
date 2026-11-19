@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#111822">
-<title>Mídia — Placar Clube</title>
+<title>Mídia — MarQGol</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
 <link rel="stylesheet" href="/comum/ui.css">
@@ -39,7 +39,7 @@ body { display: grid; grid-template-rows: auto auto 1fr; overflow: hidden; }
 <body>
 
 <header class="topo">
-  <div class="topo-esq"><span class="titulo">Placar Clube</span></div>
+  <div class="topo-esq"><a class="titulo" href="/app/" style="color:inherit;text-decoration:none">MarQ<span style="color:#f5b82e">Gol</span></a></div>
   <nav class="abas" aria-label="Telas de operação">
     <a class="aba" href="controle.html#telao">Controle</a>
     <a class="aba" href="configuracao.html">Configuração</a>
@@ -134,8 +134,10 @@ body { display: grid; grid-template-rows: auto auto 1fr; overflow: hidden; }
 
 <script src="/comum/ui.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/comum/marq.js"></script>
 <script>
-const socket = io();
+// Mídia do cliente, aberta a partir de um placar (/p/<id>/controle/).
+const socket = MARQ.conectar();
 let fila = [];
 let filaSlides = [];
 let ultimosVideos = [];
@@ -171,7 +173,7 @@ async function enviarArquivos(tipo, input) {
         const f = files[i];
         status.textContent = `Enviando ${i + 1} de ${files.length}: ${f.name}…`;
         try {
-            const resp = await fetch(`/api/upload/${tipo}?nome=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
+            const resp = await fetch(`/api/midia/${tipo}?nome=${encodeURIComponent(f.name)}`, { method: 'POST', body: f, headers: { 'X-MarQ': '1' } });
             if (!resp.ok) {
                 const erro = await resp.json().catch(() => ({}));
                 falhas.push(`${f.name}: ${erro.erro || 'erro ' + resp.status}`);
@@ -189,7 +191,7 @@ async function enviarArquivos(tipo, input) {
 async function excluirArquivo(tipo, nome, rotulo) {
     const ok = await confirmar({ titulo: `Excluir ${rotulo}?`, texto: `"${nome}" será apagado do servidor. Não dá para desfazer.`, sim: 'Excluir', perigo: true });
     if (!ok) return;
-    const resp = await fetch(`/api/${tipo}/${encodeURIComponent(nome)}`, { method: 'DELETE' });
+    const resp = await fetch(`/api/midia/${tipo}/${encodeURIComponent(nome)}`, { method: 'DELETE', headers: { 'X-MarQ': '1' } });
     if (!resp.ok) {
         const erro = await resp.json().catch(() => ({}));
         avisar('Não foi excluído', erro.erro || 'erro ' + resp.status);
@@ -209,7 +211,7 @@ function renderPatrocinadores(lista) {
     const container = document.getElementById('lista-patrocinadores');
     container.innerHTML = lista.length ? lista.map(nome => `
         <div class="patro">
-          <img src="/patrocinadores/${encodeURIComponent(nome)}" alt="">
+          <img src="../patrocinadores/${encodeURIComponent(nome)}" alt="">
           <div class="linha"><span title="${esc(nome)}">${esc(nome)}</span>
             <button class="btn icone leve" data-acao="excluir" data-tipo="patrocinador" data-rotulo="a logo" data-nome="${esc(nome)}" aria-label="Excluir ${esc(nome)}">${ic('trash')}</button></div>
         </div>`).join('')
@@ -256,7 +258,7 @@ function ehVideoSlide(nome) {
 function thumbSlide(nome) {
     return ehVideoSlide(nome)
         ? `<span class="miniatura">${ic('video')}</span>`
-        : `<img class="miniatura" src="/slides/${encodeURIComponent(nome)}" alt="" loading="lazy">`;
+        : `<img class="miniatura" src="../slides/${encodeURIComponent(nome)}" alt="" loading="lazy">`;
 }
 
 function carregarSlides() {
@@ -342,7 +344,7 @@ async function enviarPdfComoSlides(input) {
 
             const nomeArquivo = `${baseNome}_${String(i).padStart(3, '0')}.png`;
             status.textContent = `Enviando página ${i} de ${pdf.numPages}…`;
-            const resp = await fetch(`/api/upload/slide?nome=${encodeURIComponent(nomeArquivo)}`, { method: 'POST', body: blob });
+            const resp = await fetch(`/api/midia/slide?nome=${encodeURIComponent(nomeArquivo)}`, { method: 'POST', body: blob, headers: { 'X-MarQ': '1' } });
             if (!resp.ok) {
                 const erro = await resp.json().catch(() => ({}));
                 falhas.push(`Página ${i}: ${erro.erro || 'erro ' + resp.status}`);

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1428">
+<title>Criar conta — MarQGol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="/comum/ui.css">
+<link rel="stylesheet" href="/comum/site.css">
+</head>
+<body class="site">
+<header class="site-topo"><a class="marca" href="/">MarQ<span>Gol</span></a><nav><a class="btn leve" href="/entrar">Já tenho conta</a></nav></header>
+<main class="caixa-form larga">
+  <section class="cartao">
+    <h1>Teste grátis por 14 dias</h1>
+    <p>Sem cartão. No fim do teste você escolhe se assina — seus dados ficam guardados.</p>
+    <div id="msg" hidden></div>
+    <form id="form" novalidate>
+      <div>
+        <span class="rotulo">Plano para o teste</span>
+        <div class="escolha-plano" id="planos"><span class="vazio">Carregando…</span></div>
+      </div>
+      <div class="grade-2">
+        <div><label class="rotulo" for="nomeCliente">Clube, escola ou organização</label><input class="campo" id="nomeCliente" maxlength="120" required></div>
+        <div><label class="rotulo" for="documento">CPF ou CNPJ</label><input class="campo" id="documento" inputmode="numeric" maxlength="18" required placeholder="Para a cobrança, se assinar"></div>
+      </div>
+      <div class="grade-2">
+        <div><label class="rotulo" for="nome">Seu nome</label><input class="campo" id="nome" autocomplete="name" maxlength="120" required></div>
+        <div><label class="rotulo" for="telefone">Celular (opcional)</label><input class="campo" id="telefone" type="tel" autocomplete="tel" maxlength="20"></div>
+      </div>
+      <div class="grade-2">
+        <div><label class="rotulo" for="email">E-mail</label><input class="campo" id="email" type="email" autocomplete="email" required></div>
+        <div><label class="rotulo" for="senha">Senha (mín. 8 caracteres)</label><input class="campo" id="senha" type="password" autocomplete="new-password" minlength="8" required></div>
+      </div>
+      <label class="check"><input type="checkbox" id="aceite" required><span>Li e aceito os <a href="/termos" target="_blank" style="color:var(--fg)">Termos de uso e a Política de privacidade</a>. Entendo que sou responsável pelos dados dos atletas que cadastrar (nomes, fotos e vídeos), inclusive pela autorização dos responsáveis no caso de menores.</span></label>
+      <button class="btn grande marca-btn" type="submit" id="enviar">Criar conta e começar</button>
+    </form>
+  </section>
+</main>
+<script src="/comum/ui.js"></script>
+<script src="/comum/marq.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const msg = document.getElementById('msg');
+function mostrar(texto) { msg.className = 'erro-form'; msg.textContent = texto; msg.hidden = false; msg.scrollIntoView({ block: 'nearest' }); }
+
+MARQ.api('GET', '/api/publico/planos').then(planos => {
+    const escolhido = Number(q.get('plano')) || (planos[0] && planos[0].id);
+    document.getElementById('planos').innerHTML = planos.map(p => `
+      <label><input type="radio" name="plano" value="${p.id}" ${p.id === escolhido ? 'checked' : ''}>
+        <b>${esc(p.nome)}</b><span>${esc(MARQ.dinheiro(p.preco_centavos))}/mês · ${p.max_placares} placar${p.max_placares === 1 ? '' : 'es'}</span></label>`).join('');
+}).catch(() => { document.getElementById('planos').innerHTML = '<span class="vazio">Não foi possível carregar os planos.</span>'; });
+
+// Máscara simples de CPF/CNPJ (só para leitura; o servidor guarda dígitos).
+document.getElementById('documento').addEventListener('input', (e) => {
+    const d = e.target.value.replace(/\D/g, '').slice(0, 14);
+    e.target.value = d.length <= 11
+        ? d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+        : d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+});
+
+document.getElementById('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!document.getElementById('aceite').checked) return mostrar('Para criar a conta, aceite os termos de uso.');
+    const v = (id) => document.getElementById(id).value;
+    const btn = document.getElementById('enviar');
+    btn.disabled = true;
+    msg.hidden = true;
+    try {
+        const plano = document.querySelector('input[name="plano"]:checked');
+        const r = await MARQ.api('POST', '/api/auth/cadastro', {
+            planoId: plano ? Number(plano.value) : undefined,
+            nomeCliente: v('nomeCliente'), documento: v('documento'), telefone: v('telefone'),
+            nome: v('nome'), email: v('email'), senha: v('senha')
+        });
+        location.href = r.destino + '?bemvindo=1';
+    } catch (e) {
+        mostrar(e.message);
+        btn.disabled = false;
+    }
+});
+</script>
+</body>
+</html>

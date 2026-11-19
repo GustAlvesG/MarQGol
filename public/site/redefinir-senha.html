@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1428">
+<title>Nova senha — MarQGol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="/comum/ui.css">
+<link rel="stylesheet" href="/comum/site.css">
+</head>
+<body class="site">
+<header class="site-topo"><a class="marca" href="/">MarQ<span>Gol</span></a></header>
+<main class="caixa-form">
+  <section class="cartao">
+    <h1>Criar nova senha</h1>
+    <div id="msg" hidden></div>
+    <form id="form" novalidate>
+      <div><label class="rotulo" for="senha">Nova senha (mín. 8 caracteres)</label><input class="campo" id="senha" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div><label class="rotulo" for="senha2">Repita a senha</label><input class="campo" id="senha2" type="password" autocomplete="new-password" required></div>
+      <button class="btn grande marca-btn" type="submit" id="enviar">Salvar e entrar</button>
+    </form>
+  </section>
+</main>
+<script src="/comum/ui.js"></script>
+<script src="/comum/marq.js"></script>
+<script>
+const token = new URLSearchParams(location.search).get('token') || '';
+const msg = document.getElementById('msg');
+function mostrar(t) { msg.className = 'erro-form'; msg.textContent = t; msg.hidden = false; }
+if (!token) { mostrar('Link incompleto. Abra o link do e-mail de novo ou peça outro em "Esqueci a senha".'); document.getElementById('form').hidden = true; }
+document.getElementById('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const s1 = document.getElementById('senha').value, s2 = document.getElementById('senha2').value;
+    if (s1 !== s2) return mostrar('As senhas não são iguais.');
+    const btn = document.getElementById('enviar');
+    btn.disabled = true;
+    try {
+        const r = await MARQ.api('POST', '/api/auth/redefinir-senha', { token, senha: s1 });
+        location.href = r.destino;
+    } catch (e) {
+        mostrar(e.message + (e.status === 410 ? ' ' : ''));
+        if (e.status === 410) msg.insertAdjacentHTML('beforeend', ' <a href="/esqueci-senha" style="color:#fff">Pedir outro link</a>');
+        btn.disabled = false;
+    }
+});
+</script>
+</body>
+</html>

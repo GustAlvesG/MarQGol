@@ -58,6 +58,14 @@ function rotasArquivos({ repos, armazenamento, gerenciador, cfg, mw }) {
         };
     }
 
+    // As páginas usam caminhos relativos: /p/7 precisa virar /p/7/.
+    r.get('/p/:placarId', (req, res, next) => {
+        const i = req.originalUrl.indexOf('?');
+        const caminho = i < 0 ? req.originalUrl : req.originalUrl.slice(0, i);
+        if (caminho.endsWith('/')) return next(); // sem barra estrita, /p/7/ também casa aqui
+        res.redirect(301, caminho + '/' + (i < 0 ? '' : req.originalUrl.slice(i)));
+    });
+
     // ---- Arte do telão ----
     // O telão pede `base/futsal/box.png`; o slot é o caminho sem extensão.
     r.get('/p/:placarId/base/*caminho', guardaPlacar({ permitirTela: true }), async (req, res) => {

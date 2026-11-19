@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#111822">
-<title>Controle — Placar Clube</title>
+<title>Controle — MarQGol</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
 <style>
@@ -149,6 +149,20 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
 .btn-forte.alerta { background: var(--run); color: var(--run-texto); }
 .btn-forte svg { font-size: 24px; stroke-width: 3; }
 .btn-forte:active { filter: brightness(1.15); }
+
+/* ---------- Agendar jogo ---------- */
+.mini.largo { width: auto; padding: 0 12px; gap: 6px; display: inline-flex; align-items: center; font-family: var(--f-rot); font-weight: 700; font-size: 16px; letter-spacing: .06em; text-transform: uppercase; }
+.form-ag { max-width: 720px; }
+.ag-segs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; padding: 5px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 14px; }
+.ag-segs .seg { min-height: 52px; border-radius: 12px; font-family: var(--f-rot); font-weight: 700; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ag-segs .seg.on { background: var(--surface-3); color: var(--fg); box-shadow: inset 0 0 0 2px var(--fg); }
+.ag-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ag-campo { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.ag-campo span { font-family: var(--f-rot); font-size: 14px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ag-campo select, .ag-campo input { min-height: 54px; padding: 0 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: 18px; width: 100%; }
+.ag-campo select:focus, .ag-campo input:focus { border-color: var(--fg); outline: none; }
+.ag-erro { background: var(--perigo-fundo); color: #ffb4b4 !important; padding: 10px 14px; border-radius: 12px; }
+@media (max-width: 600px) { .ag-grade { grid-template-columns: 1fr; } }
 
 /* ---------- Toast ---------- */
 /* Embaixo, acima do rodapé da mesa: no topo cobria o relógio. */
@@ -342,7 +356,7 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
 
     Três abas, na ordem do dia de jogo (o hash da URL guarda a aba: #preparar,
     #controle, #telao; #mesa, o nome antigo, ainda abre o Controle):
-      Preparar → escolhe o jogo da API e confere o checklist (elencos, relógio,
+      Preparar → escolhe o jogo da agenda e confere o checklist (elencos, relógio,
                  telão). Editar elenco/logos/modo manual continua em configuracao.html.
       Controle → o placar. Organizada por FREQUÊNCIA DE USO:
                    topo    relógio (toque = liga/pausa) e período;
@@ -473,16 +487,17 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
   <main class="vista preparar" id="vista-preparar" hidden>
     <div class="coluna">
       <div class="coluna-cab">
-        <div><h2>Jogos</h2><p id="jogos-sub">Vindos do Placar Clube</p></div>
+        <div><h2>Jogos</h2><p id="jogos-sub">Agenda deste placar</p></div>
         <div class="data-nav" id="data-nav">
           <button class="mini" data-acao="dia" data-v="-1" aria-label="Dia anterior"><svg class="i"><use href="#i-left"/></svg></button>
           <span class="dia" id="dia-txt">Hoje</span>
           <button class="mini" data-acao="dia" data-v="1" aria-label="Próximo dia"><svg class="i"><use href="#i-right"/></svg></button>
           <button class="mini" data-acao="buscar-jogos" aria-label="Atualizar lista"><svg class="i"><use href="#i-refresh"/></svg></button>
+          <button class="mini largo" data-acao="abrir-agendar" aria-label="Agendar jogo"><svg class="i"><use href="#i-plus"/></svg><span class="rotulo-longo">Agendar</span></button>
         </div>
       </div>
       <div class="jogos" id="jogos"></div>
-      <div class="manual"><span>Jogo fora da lista ou sem internet? <b>Monte o jogo à mão</b> na configuração completa; o controle funciona igual.</span>
+      <div class="manual"><span>Jogo fora da lista? Toque em <b>Agendar</b> acima. Para montar à mão sem súmula, use a configuração completa.</span>
         <a class="btn-topo btn" href="configuracao.html"><svg class="i"><use href="#i-gear"/></svg>Configuração</a></div>
     </div>
     <div class="coluna">
@@ -528,8 +543,10 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
 <div id="camada"></div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/comum/marq.js"></script>
 <script>
-const socket = io();
+// Controle de UM placar (/p/<id>/controle/). Sem login, o marq.js leva ao login.
+const socket = MARQ.conectar();
 
 // O que muda por esporte NA INTERFACE. Regra de jogo (set fechável, limite de
 // faltas, lances estornáveis) vem pronta do servidor — não duplique aqui.
@@ -656,7 +673,7 @@ function renderTopo() {
         chipApi.className = 'chip ' + (erro ? 'erro' : integracao.pendentes ? 'sync' : '');
         $('chip-api-txt').textContent = `#${integracao.jogoId} · ` +
             (erro ? `erro, ${integracao.pendentes} na fila` : integracao.pendentes ? `${integracao.pendentes} enviando` : 'em dia');
-        chipApi.title = erro && integracao.ultimoErro ? integracao.ultimoErro : 'Sincronização com o Placar Clube';
+        chipApi.title = erro && integracao.ultimoErro ? integracao.ultimoErro : 'Súmula do jogo gravada no MarQGol';
     }
     const validos = (estado.lances || []).filter(l => !l.estornado).length;
     $('contador-lances').textContent = validos;
@@ -945,18 +962,19 @@ function htmlMenu() {
             <p>Modo rápido marca ponto e falta sem perguntar o jogador. As duas opções valem só neste tablet; o telão não muda.</p>
           </div>
           <div class="cartao"><h3>Fim de jogo</h3>
-            <button class="segurar ok" data-segurar="encerrar" id="menu-encerrar"><span class="enche"></span>${ic('flag')}<span>Encerrar jogo na API</span><span class="sub">segure</span></button>
+            <button class="segurar ok" data-segurar="encerrar" id="menu-encerrar"><span class="enche"></span>${ic('flag')}<span>Encerrar jogo</span><span class="sub">segure</span></button>
             <button class="linha-btn" data-acao="transmissao" id="menu-transmissao"></button>
           </div>
           <div class="cartao"><h3>Corrigir e recomeçar</h3>
             <button class="linha-btn" data-acao="reabrir-set" id="menu-reabrir">${ic('undo')}Reabrir o último set</button>
             <button class="segurar perigo" data-segurar="zerar-faltas" id="menu-zerar-faltas"><span class="enche"></span>${ic('reset')}<span>Zerar faltas</span><span class="sub">segure</span></button>
             <button class="segurar perigo" data-segurar="zerar"><span class="enche"></span>${ic('reset')}<span>Zerar placar e relógio</span><span class="sub">segure</span></button>
-            <p>Times, elencos e o vínculo com a API continuam. Zerar não é enviado à súmula.</p>
+            <p>Times, elencos e o jogo carregado continuam. Zerar não entra na súmula.</p>
           </div>
           <div class="cartao"><h3>Ir para</h3>
             <a class="linha-btn btn" href="configuracao.html">${ic('gear')}Configuração completa<span class="sub">elenco, logos, modo manual</span></a>
             <a class="linha-btn btn" href="controle_anuncios.html">${ic('film')}Arquivos de mídia<span class="sub">vídeos, slides, patrocinadores</span></a>
+            <a class="linha-btn btn" href="/app/">${ic('board')}Área do cliente<span class="sub">agenda, times, placares, telas</span></a>
           </div>
         </div></div></div></div>`;
 }
@@ -987,6 +1005,7 @@ function abrirFolha(qual, opcoes = {}) {
     }
     else if (qual === 'aviso') cam.innerHTML = htmlAviso(opcoes.titulo, opcoes.texto);
     else if (qual === 'por-no-ar') cam.innerHTML = htmlPorNoAr();
+    else if (qual === 'agendar') { cam.innerHTML = htmlAgendar(); carregarTimesAgenda(); }
     cam.querySelector('[data-foco]')?.focus();
 }
 
@@ -1004,6 +1023,101 @@ function htmlPorNoAr() {
           <button class="btn-grande claro" data-acao="ir-com-telao" data-foco>${ic('power')}Sim, pôr no ar</button>
         </div></div></div>`;
 }
+// ---- Agendar jogo (direto do controle) ----
+// O operador agenda sem sair da quadra. Time novo é criado pelo nome (e
+// reaproveitado se já existir). O limite de jogos em aberto é conferido no
+// servidor — a mensagem dele aparece no próprio formulário.
+const agendar = { esporte: null, times: [], erro: '', enviando: false };
+function htmlAgendar() {
+    if (!agendar.esporte) agendar.esporte = estado?.esporte || 'futsal';
+    const d = dataDoDia();
+    const agora = new Date();
+    const hora = diaOffset === 0 ? `${pad(Math.min(23, agora.getHours() + 1))}:00` : '19:00';
+    const esportes = Object.entries(ESPORTES).map(([k, e]) =>
+        `<button type="button" class="seg ${k === agendar.esporte ? 'on' : ''}" data-acao="ag-esporte" data-v="${k}">${esc(e.nome)}</button>`).join('');
+    const seletor = (lado, rotulo) => `<label class="ag-campo"><span>${rotulo}</span>
+        <select id="ag-${lado}" onchange="agTrocouTime('${lado}')"><option value="">Carregando…</option></select>
+        <input id="ag-${lado}-novo" placeholder="Nome do time novo" maxlength="80" hidden></label>`;
+    return `<div class="veu centro" data-acao="fechar-folha"><div class="folha aviso neutra form-ag" role="dialog" aria-modal="true" aria-label="Agendar jogo" data-parar>
+        <div class="folha-cab"><h2>Agendar jogo<small>Fica na agenda deste placar</small></h2></div>
+        <div class="folha-corpo">
+          <div class="ag-segs">${esportes}</div>
+          <div class="ag-grade">${seletor('casa', 'Time da casa')}${seletor('fora', 'Visitante')}</div>
+          <div class="ag-grade">
+            <label class="ag-campo"><span>Dia</span><input id="ag-dia" type="date" value="${isoDia(d)}"></label>
+            <label class="ag-campo"><span>Hora</span><input id="ag-hora" type="time" value="${hora}"></label>
+          </div>
+          <label class="ag-campo"><span>Local (opcional)</span><input id="ag-local" maxlength="200" placeholder="Ginásio"></label>
+          <p class="ag-erro" id="ag-erro" ${agendar.erro ? '' : 'hidden'}>${esc(agendar.erro)}</p>
+        </div>
+        <div class="folha-pe">
+          <button class="btn-grande cinza" data-acao="fechar-folha">Cancelar</button>
+          <button class="btn-grande claro" data-acao="ag-salvar" id="ag-salvar">${ic('check')}Agendar</button>
+        </div></div></div>`;
+}
+function carregarTimesAgenda() {
+    socket.emit('placar_chamar', { acao: 'listarTimes', payload: { esporte: agendar.esporte } }, (resp) => {
+        agendar.times = resp && resp.ok ? resp.dado : [];
+        for (const lado of ['casa', 'fora']) {
+            const sel = $('ag-' + lado);
+            if (!sel) return;
+            sel.innerHTML = `<option value="">Escolha…</option>` +
+                agendar.times.map(t => `<option value="${t.id}">${esc(t.nome)}${t.categoria ? ' · ' + esc(t.categoria) : ''}</option>`).join('') +
+                `<option value="novo">+ Time novo…</option>`;
+            agTrocouTime(lado);
+        }
+    });
+}
+function agTrocouTime(lado) {
+    const novo = $('ag-' + lado).value === 'novo';
+    $('ag-' + lado + '-novo').hidden = !novo;
+    if (novo) $('ag-' + lado + '-novo').focus();
+}
+function agMostrarErro(texto) {
+    agendar.erro = texto;
+    const el = $('ag-erro');
+    if (el) { el.textContent = texto; el.hidden = !texto; }
+}
+const chamarAgenda = (acao, payload) => new Promise(r => socket.emit('placar_chamar', { acao, payload }, r));
+async function agSalvar() {
+    if (agendar.enviando) return;
+    agMostrarErro('');
+    const resolver = async (lado) => {
+        const v = $('ag-' + lado).value;
+        if (v && v !== 'novo') return Number(v);
+        const nome = $('ag-' + lado + '-novo').value.trim();
+        if (!nome) throw new Error('Escolha ou digite os dois times.');
+        const r = await chamarAgenda('criarTime', { nome, esporte: agendar.esporte });
+        if (!r || !r.ok) throw new Error((r && r.erro) || 'Não foi possível criar o time.');
+        return r.dado.id;
+    };
+    const dia = $('ag-dia').value, hora = $('ag-hora').value || '00:00';
+    if (!dia) { agMostrarErro('Escolha o dia.'); return; }
+    agendar.enviando = true;
+    $('ag-salvar').disabled = true;
+    try {
+        const casa = await resolver('casa'), fora = await resolver('fora');
+        if (casa === fora) throw new Error('Escolha dois times diferentes.');
+        const [a, m, dd] = dia.split('-').map(Number), [h, mi] = hora.split(':').map(Number);
+        const r = await chamarAgenda('agendarJogo', {
+            esporte: agendar.esporte, time_casa_id: casa, time_fora_id: fora,
+            data_hora: new Date(a, m - 1, dd, h, mi).toISOString(), local: $('ag-local').value.trim()
+        });
+        if (!r || !r.ok) throw new Error((r && r.erro) || 'Não foi possível agendar.');
+        fecharFolha();
+        toast(`Jogo #${r.dado.id} agendado`);
+        // A lista vai para o dia do jogo recém-agendado.
+        const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+        diaOffset = Math.round((new Date(a, m - 1, dd) - hoje) / 86400000);
+        buscarJogos();
+    } catch (e) {
+        agMostrarErro(e.message);
+    } finally {
+        agendar.enviando = false;
+        const b = $('ag-salvar'); if (b) b.disabled = false;
+    }
+}
+
 function fecharFolha() { folha = null; pendente = null; confirmaEstorno = null; $('camada').innerHTML = ''; }
 
 // Substitui alert(): o aviso fica na tela até o operador fechar.
@@ -1089,7 +1203,7 @@ function buscarJogos() {
 function carregarJogo(id) {
     socket.emit('placar_carregar_jogo', { jogoId: id }, (resp) => {
         jogoTroca = null;
-        if (!resp || !resp.ok) { avisar('Não deu para carregar o jogo', `A API respondeu: ${(resp && resp.erro) || 'sem resposta'}.\nConfira a conexão e tente de novo.`); renderPreparar(); return; }
+        if (!resp || !resp.ok) { avisar('Não deu para carregar o jogo', `${(resp && resp.erro) || 'Sem resposta do servidor'}.`); renderPreparar(); return; }
         toast(`Jogo #${id} carregado`);
         renderPreparar();
     });
@@ -1100,15 +1214,15 @@ function renderPreparar() {
     const lista = $('jogos');
     $('data-nav').hidden = !integracao.configurada;
     if (!integracao.configurada) {
-        $('jogos-sub').textContent = 'Integração com o Placar Clube desligada neste servidor';
-        lista.innerHTML = `<p class="vazio">Sem a API (LARAVEL_BASE_URL e LARAVEL_API_TOKEN no .env), o jogo é montado à mão na configuração completa.</p>`;
+        $('jogos-sub').textContent = 'Agenda indisponível';
+        lista.innerHTML = `<p class="vazio">A agenda não respondeu. Monte o jogo à mão na configuração completa.</p>`;
     } else if (buscando) {
         $('jogos-sub').textContent = 'Buscando…';
     } else if (jogosErro) {
-        $('jogos-sub').textContent = 'Vindos do Placar Clube';
+        $('jogos-sub').textContent = 'Agenda deste placar';
         lista.innerHTML = `<p class="vazio">Não deu para buscar os jogos: ${esc(jogosErro)}.<br>Toque em atualizar para tentar de novo.</p>`;
     } else {
-        $('jogos-sub').textContent = `Vindos do Placar Clube · ${jogosApi.length} jogo${jogosApi.length === 1 ? '' : 's'}`;
+        $('jogos-sub').textContent = `Agenda deste placar · ${jogosApi.length} jogo${jogosApi.length === 1 ? '' : 's'}`;
         const temLances = (estado?.lances || []).some(l => !l.estornado);
         lista.innerHTML = jogosApi.length ? jogosApi.map(j => {
             const sel = integracao.jogoId === j.id;
@@ -1124,7 +1238,7 @@ function renderPreparar() {
                 <div class="conf"><b>${esc(nomeTimeDoJogo(j.time_casa))}<i>×</i>${esc(nomeTimeDoJogo(j.time_fora))}</b><span>${status}${info}</span></div>
                 <button class="acao" data-acao="carregar-jogo" data-v="${j.id}" ${sel ? 'aria-pressed="true"' : ''}>${sel ? ic('check') + 'Carregado' : 'Carregar'}</button>
                 ${confirma}</div>`;
-        }).join('') : `<p class="vazio">Nenhum jogo cadastrado para ${rotuloDia().toLowerCase()}.</p>`;
+        }).join('') : `<p class="vazio">Nenhum jogo agendado para ${rotuloDia().toLowerCase()}.<br><button class="btn-topo" data-acao="abrir-agendar" style="margin-top:12px">${ic('plus')}Agendar um jogo</button></p>`;
     }
     renderPassos();
 }
@@ -1268,7 +1382,7 @@ socket.on('integracao_status', (status) => {
 });
 
 socket.on('integracao_eventos_rejeitados', (rejeitados) => {
-    avisar('A API recusou lances', `O Placar Clube rejeitou ${rejeitados.length} evento(s). O placar do telão não muda, mas a súmula pode ficar diferente:\n` +
+    avisar('Lances recusados', `A súmula recusou ${rejeitados.length} evento(s). O placar do telão não muda, mas a súmula pode ficar diferente:\n` +
         rejeitados.map(r => `• ${r.motivo}`).join('\n'));
 });
 
@@ -1282,9 +1396,8 @@ function encerrarJogoApi() {
         sets_fora: estado.timeB.sets,
         periodos_jogados: estado.periodo
     }, (resp) => {
-        if (!resp || !resp.ok) { avisar('Jogo não encerrado', `A API respondeu: ${(resp && resp.erro) || 'sem resposta'}.\nNada mudou; tente de novo.`); return; }
-        const obs = resp.dado && resp.dado.observacoes;
-        avisar('Jogo encerrado na API', obs ? `A API registrou uma divergência para conferência:\n${obs}` : 'O resultado foi enviado ao Placar Clube.');
+        if (!resp || !resp.ok) { avisar('Jogo não encerrado', `${(resp && resp.erro) || 'Sem resposta do servidor'}.\nNada mudou; tente de novo.`); return; }
+        avisar('Jogo encerrado', 'O resultado final e a súmula foram gravados na agenda.');
     });
 }
 
@@ -1376,6 +1489,13 @@ const ACOES = {
     transmissao: () => socket.emit('comando_transmissao', { ativa: !estado.transmissaoAtiva }),
     dia: (v) => { diaOffset += Number(v); jogoTroca = null; buscarJogos(); },
     'buscar-jogos': () => buscarJogos(),
+    'abrir-agendar': () => { agendar.erro = ''; abrirFolha('agendar'); },
+    'ag-esporte': (v) => {
+        agendar.esporte = v;
+        document.querySelectorAll('.form-ag .seg').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+        carregarTimesAgenda();
+    },
+    'ag-salvar': () => agSalvar(),
     'carregar-jogo': (v) => {
         const id = Number(v);
         if (integracao.jogoId === id) return;

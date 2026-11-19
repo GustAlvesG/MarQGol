@@ -174,7 +174,7 @@ test('MarQGol — fluxo completo', opcoes, async (t) => {
 
     await t.test('pareamento de TV: código, cookie de leitura e socket só de escuta', async () => {
         const tv = S.navegador();
-        const semPar = await tv.get('/telao', { headers: { accept: 'text/html' } });
+        const semPar = await tv.get('/telao/', { headers: { accept: 'text/html' } });
         assert.equal(semPar.status, 200); // página de pareamento
         const { codigo } = (await tv.post('/api/telas/codigo')).dado;
         assert.match(codigo, /^\d{6}$/);

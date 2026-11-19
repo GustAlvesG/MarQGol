@@ -82,6 +82,7 @@ function criarGerenciador({ repos, io, armazenamento }) {
         const arte = (cliente && cliente.arte) || {};
         const espera = await armazenamento.arquivoArte(clienteId, 'espera');
         return {
+            nomeCliente: cliente ? cliente.nome : '',
             versao: arte.versao || 0,
             bordas: arte.bordas || null,
             videoStandby: espera ? 'espera' + path.extname(espera) : null
@@ -134,6 +135,7 @@ function criarGerenciador({ repos, io, armazenamento }) {
             alertaFaltas: logic.alertaFaltas(s),
             // Novidades do SaaS: identidade do placar e arte do cliente.
             placar: { id: inst.id, nome: inst.nome },
+            clienteNome: inst.arte ? inst.arte.nomeCliente : '',
             arte: { versao: inst.arte ? inst.arte.versao : 0, bordas: inst.arte ? inst.arte.bordas : null }
         };
     }

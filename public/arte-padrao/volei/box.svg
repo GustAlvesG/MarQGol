@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1000">
+<defs>
+  <linearGradient id="bd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6edf7"/><stop offset="1" stop-color="#7f8ca3"/></linearGradient>
+  <linearGradient id="pn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#132240"/><stop offset="1" stop-color="#0a1222"/></linearGradient>
+</defs>
+<text x="1000" y="106" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="40" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >TEMPO</text>
+<rect x="805" y="128" width="390" height="120" rx="22" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
+<rect x="819" y="136" width="362" height="4" rx="2" fill="#fff" opacity=".12"/>
+<rect x="675" y="298" width="650" height="315" rx="22" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
+<rect x="689" y="306" width="622" height="4" rx="2" fill="#fff" opacity=".12"/><path d="M960 417 L1040 493 M1040 417 L960 493" stroke="#fff" stroke-width="12" stroke-linecap="square"/>
+<rect x="675" y="655" width="650" height="193" rx="22" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
+<rect x="689" y="663" width="622" height="4" rx="2" fill="#fff" opacity=".12"/>
+<rect x="202" y="293" width="330" height="332" rx="60" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
+<rect x="216" y="301" width="302" height="4" rx="2" fill="#fff" opacity=".12"/>
+<rect x="1467" y="293" width="330" height="332" rx="60" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
+<rect x="1481" y="301" width="302" height="4" rx="2" fill="#fff" opacity=".12"/>
+<path d="M155 740 L582 740 L550 838 L187 838 Z" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="4"/>
+<rect x="388" y="720" width="122" height="130" rx="14" fill="#05080f" stroke="url(#bd)" stroke-width="5"/>
+<text x="280" y="806" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="54" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >SETS</text>
+<path d="M1418 740 L1845 740 L1813 838 L1450 838 Z" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="4"/>
+<rect x="1490" y="720" width="122" height="130" rx="14" fill="#05080f" stroke="url(#bd)" stroke-width="5"/>
+<text x="1718" y="806" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="54" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >SETS</text>
+</svg>

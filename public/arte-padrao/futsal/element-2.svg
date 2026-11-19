@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+<g opacity=".14"><circle cx="500" cy="500" r="440" fill="none" stroke="#fff" stroke-width="26"/>
+<polygon points="500,300 620,385 575,525 425,525 380,385" fill="#fff"/>
+<path d="M500 300 L500 70 M620 385 L830 300 M575 525 L700 720 M425 525 L300 720 M380 385 L170 300" stroke="#fff" stroke-width="22"/></g>
+</svg>

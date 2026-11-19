@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#111822">
-<title>Configuração — Placar Clube</title>
+<title>Configuração — MarQGol</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
 <link rel="stylesheet" href="/comum/ui.css">
@@ -49,7 +49,7 @@ details.ajuda-import pre { background: var(--bg); border: 1px solid var(--line);
 
 <header class="topo">
   <div class="topo-esq">
-    <span class="titulo">Placar Clube</span>
+    <a class="titulo" href="/app/" style="color:inherit;text-decoration:none">MarQ<span style="color:#f5b82e">Gol</span></a>
   </div>
   <nav class="abas" aria-label="Telas de operação">
     <a class="aba" href="controle.html#preparar">Controle</a>
@@ -64,26 +64,26 @@ details.ajuda-import pre { background: var(--bg); border: 1px solid var(--line);
 
 <main class="pagina">
 
-  <!-- 1. Jogo: pela API (principal) ou manual (fallback). -->
+  <!-- 1. Jogo: pela agenda (principal) ou manual (fallback, sem súmula). -->
   <section class="cartao">
     <div class="cartao-cab">
       <div><h2><span class="passo-num">1</span>Jogo</h2>
-        <p id="integracao-aviso">Verificando a integração com o Placar Clube…</p></div>
+        <p id="integracao-aviso">Carregando a agenda…</p></div>
     </div>
 
     <div class="segmentos" role="group" aria-label="Como preparar o jogo">
       <button type="button" class="segmento" data-modo="planejado" onclick="selecionarModoIntegracao('planejado')">Selecionar jogo<small>recomendado</small></button>
       <button type="button" class="segmento" data-modo="avulso" onclick="selecionarModoIntegracao('avulso')">Criar jogo agora<small>times pelo nome</small></button>
-      <button type="button" class="segmento" data-modo="manual" aria-pressed="true" onclick="selecionarModoIntegracao('manual')">Manual<small>sem a API</small></button>
+      <button type="button" class="segmento" data-modo="manual" aria-pressed="true" onclick="selecionarModoIntegracao('manual')">Manual<small>sem súmula</small></button>
     </div>
 
-    <!-- Manual: o formulário abaixo, sem depender da API. -->
+    <!-- Manual: o formulário abaixo, sem jogo da agenda. -->
     <div id="painel-manual" class="aviso-caixa">
       <svg class="i" aria-hidden="true"><use href="#i-alert"/></svg>
-      <span>Use o modo manual só quando a partida <b>não</b> estiver cadastrada no sistema do clube: preencha os times abaixo e toque em <b>Salvar configuração</b>. Nada vai para a súmula. Sempre que possível, prefira <b>Selecionar jogo</b>.</span>
+      <span>Use o modo manual só para um jogo que <b>não</b> está na agenda (amistoso, treino): preencha os times abaixo e toque em <b>Salvar configuração</b>. Nada vai para a súmula. Sempre que possível, prefira <b>Selecionar jogo</b> ou <b>Criar jogo agora</b>.</span>
     </div>
 
-    <!-- Planejado: jogos já cadastrados na API. -->
+    <!-- Planejado: jogos da agenda do cliente. -->
     <div id="painel-planejado" hidden>
       <div class="linha" style="margin-bottom:10px">
         <select id="filtro-status-jogos" class="campo" style="width:auto;flex:1;min-width:180px" aria-label="Status">
@@ -100,9 +100,9 @@ details.ajuda-import pre { background: var(--bg); border: 1px solid var(--line);
       <div id="lista-jogos" class="lista rola"><p class="vazio">Nenhuma busca feita ainda.</p></div>
     </div>
 
-    <!-- Avulso: cria equipe/time (pelo nome, firstOrCreate no backend) + jogo. -->
+    <!-- Avulso: cria (ou reaproveita) os times pelo nome e o jogo, já carregado. -->
     <div id="painel-avulso" hidden>
-      <p class="ajuda" style="margin-bottom:10px">Usa o esporte e os nomes dos times preenchidos abaixo para criar (ou reaproveitar) a equipe, o time e o jogo no sistema do clube.</p>
+      <p class="ajuda" style="margin-bottom:10px">Usa o esporte e os nomes dos times preenchidos abaixo para criar (ou reaproveitar) os times e o jogo na agenda. Conta no limite de jogos em aberto do seu plano.</p>
       <div class="grade-2" style="margin-bottom:10px">
         <div><label class="rotulo" for="avulso-categoria">Categoria</label><input type="text" id="avulso-categoria" class="campo" placeholder="Adulto"></div>
         <div><label class="rotulo" for="avulso-local">Local (opcional)</label><input type="text" id="avulso-local" class="campo" placeholder="Ginásio"></div>
@@ -118,7 +118,7 @@ details.ajuda-import pre { background: var(--bg); border: 1px solid var(--line);
     </div>
   </section>
 
-  <!-- 2. Transmissão. Logo abaixo do jogo de propósito: carregado pela API, a
+  <!-- 2. Transmissão. Logo abaixo do jogo de propósito: carregado da agenda, a
        configuração já foi salva, então daqui o operador vai direto ao telão. -->
   <section class="cartao">
     <div class="cartao-cab">
@@ -158,7 +158,7 @@ details.ajuda-import pre { background: var(--bg); border: 1px solid var(--line);
         <button type="button" class="btn" onclick="addJogador('timeA')"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Jogador</button>
         <label class="btn"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Importar<input type="file" accept=".txt,.csv,.xlsx,.xls" onchange="importarElenco('timeA', this)"></label>
       </div>
-      <button type="button" class="btn cor bloco btn-escalacao" onclick="salvarEscalacao('timeA')" hidden><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>Salvar escalação na API</button>
+      <button type="button" class="btn cor bloco btn-escalacao" onclick="salvarEscalacao('timeA')" hidden><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>Salvar escalação do jogo</button>
     </section>
 
     <section class="cartao time tema-vermelho">
@@ -180,7 +180,7 @@ details.ajuda-import pre { background: var(--bg); border: 1px solid var(--line);
         <button type="button" class="btn" onclick="addJogador('timeB')"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Jogador</button>
         <label class="btn"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Importar<input type="file" accept=".txt,.csv,.xlsx,.xls" onchange="importarElenco('timeB', this)"></label>
       </div>
-      <button type="button" class="btn cor bloco btn-escalacao" onclick="salvarEscalacao('timeB')" hidden><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>Salvar escalação na API</button>
+      <button type="button" class="btn cor bloco btn-escalacao" onclick="salvarEscalacao('timeB')" hidden><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>Salvar escalação do jogo</button>
     </section>
   </div>
 
@@ -219,8 +219,10 @@ Ana Lima</pre>
 
 <script src="/comum/ui.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/comum/marq.js"></script>
 <script>
-const socket = io();
+// Configuração de UM placar (/p/<id>/controle/configuracao.html).
+const socket = MARQ.conectar();
 // Uma tela de controle só para os três esportes — ela se adapta ao esporte
 // que estiver no gameState (antes havia um arquivo por esporte).
 const TELA_CONTROLE = 'controle.html';
@@ -250,14 +252,14 @@ function atualizarPainelIntegracao() {
     const aviso = document.getElementById('integracao-aviso');
     const tabsApi = document.querySelectorAll('.segmento[data-modo="planejado"], .segmento[data-modo="avulso"]');
     if (!integracao.configurada) {
-        aviso.textContent = 'Integração com o Placar Clube não configurada neste servidor (LARAVEL_BASE_URL/LARAVEL_API_TOKEN no .env). Use o modo manual.';
+        aviso.textContent = 'Agenda indisponível no momento. Use o modo manual.';
         tabsApi.forEach(b => b.disabled = true);
         if (modoAtual !== 'manual') mudarModoIntegracao('manual');
     } else {
         tabsApi.forEach(b => b.disabled = false);
         aviso.textContent = integracao.jogoId
-            ? `Jogo #${integracao.jogoId} carregado.` + (integracao.pendentes ? ` ${integracao.pendentes} evento(s) esperando envio.` : '')
-            : 'Integração ativa. Selecione um jogo existente ou crie um novo.';
+            ? `Jogo #${integracao.jogoId} carregado.` + (integracao.pendentes ? ` ${integracao.pendentes} lance(s) sendo gravados na súmula.` : '')
+            : 'Selecione um jogo da agenda ou crie um agora.';
         // O fluxo principal é pela API: assim que ela fica disponível (e o
         // operador ainda não escolheu nada nem há jogo carregado), vai direto
         // para "Selecionar jogo" e já busca — em vez de deixar o manual.
@@ -359,7 +361,7 @@ function buscarJogos() {
 
 function carregarJogo(jogoId) {
     socket.emit('placar_carregar_jogo', { jogoId }, (resp) => {
-        if (!resp.ok) { avisar('Não deu para carregar o jogo', `A API respondeu: ${resp.erro}.`); return; }
+        if (!resp.ok) { avisar('Não deu para carregar o jogo', `${resp.erro}.`); return; }
         aplicarRespostaJogoNaTela(resp.dado);
         buscarJogos();
     });
@@ -380,11 +382,11 @@ function criarJogoAvulso() {
     // 4 chamadas do modo avulso (docs/placar-clube-api.md) reduzidas a 3:
     // POST /times já cria a equipe junto via equipe_nome (firstOrCreate).
     socket.emit('placar_chamar', { acao: 'criarTime', payload: { equipe_nome: nomeA, modalidade, categoria } }, (respA) => {
-        if (!respA.ok) return avisar('Time A não foi criado', `A API respondeu: ${respA.erro}.`);
+        if (!respA.ok) return avisar('Time A não foi criado', `${respA.erro}.`);
         socket.emit('placar_chamar', { acao: 'criarTime', payload: { equipe_nome: nomeB, modalidade, categoria } }, (respB) => {
-            if (!respB.ok) return avisar('Time B não foi criado', `A API respondeu: ${respB.erro}.`);
+            if (!respB.ok) return avisar('Time B não foi criado', `${respB.erro}.`);
             socket.emit('placar_criar_jogo', { dados: { modalidade, time_casa_id: respA.dado.id, time_fora_id: respB.dado.id, local } }, (respJogo) => {
-                if (!respJogo.ok) return avisar('O jogo não foi criado', `A API respondeu: ${respJogo.erro}.`);
+                if (!respJogo.ok) return avisar('O jogo não foi criado', `${respJogo.erro}.`);
                 aplicarRespostaJogoNaTela(respJogo.dado);
             });
         });
@@ -395,7 +397,7 @@ function iniciarJogoApi() {
     if (!integracao.jogoId) return;
     socket.emit('placar_iniciar_jogo', { jogoId: integracao.jogoId }, (resp) => {
         if (resp.ok) toast(`Jogo #${integracao.jogoId} marcado como ao vivo`);
-        else avisar('Não deu para marcar ao vivo', `A API respondeu: ${resp.erro}.`);
+        else avisar('Não deu para marcar ao vivo', `${resp.erro}.`);
     });
 }
 
@@ -439,15 +441,15 @@ function mapearJogadorApi(j) {
 
 function salvarEscalacao(time) {
     const timeIdApi = time === 'timeA' ? timeAIdApi : timeBIdApi;
-    if (!integracao.jogoId || !timeIdApi) { avisar('Sem jogo da API', 'Carregue ou crie um jogo pela integração antes de salvar a escalação.'); return; }
+    if (!integracao.jogoId || !timeIdApi) { avisar('Sem jogo carregado', 'Carregue ou crie um jogo da agenda antes de salvar a escalação.'); return; }
     const jogadores = elenco[time]
         .filter(j => j.jogador_id)
         .map(j => ({ jogador_id: j.jogador_id, numero: String(j.numero || ''), titular: !!j.titular, capitao: !!j.capitao }));
-    if (jogadores.length === 0) { avisar('Nada para salvar', 'Nenhum jogador deste time tem cadastro na API. Jogadores adicionados aqui à mão não têm vínculo com o sistema do clube.'); return; }
+    if (jogadores.length === 0) { avisar('Nada para salvar', 'Nenhum jogador deste time está cadastrado. Cadastre os jogadores em Times, na área do cliente — os adicionados aqui à mão valem só para este jogo no telão.'); return; }
     // Substitui por completo a escalação anterior deste time (não é merge).
     socket.emit('placar_salvar_escalacao', { jogoId: integracao.jogoId, time_id: timeIdApi, jogadores }, (resp) => {
-        if (resp.ok) toast('Escalação salva na API');
-        else avisar('Escalação não salva', `A API respondeu: ${resp.erro}.`);
+        if (resp.ok) toast('Escalação salva');
+        else avisar('Escalação não salva', `${resp.erro}.`);
     });
 }
 

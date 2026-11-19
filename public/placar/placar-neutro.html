@@ -168,8 +168,9 @@ body.ocioso .tema { opacity: 0; pointer-events: none; }
 </svg>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/comum/marq.js"></script>
 <script>
-const socket = io();
+const socket = MARQ.conectar({ telaSoLeitura: true });
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

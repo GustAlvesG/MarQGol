@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 860">
+<g fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="22" stroke-linejoin="round">
+  <path d="M500 40 L880 150 L860 470 Q820 700 500 820 Q180 700 140 470 L120 150 Z"/>
+  <path d="M500 110 L810 200 L795 465 Q760 650 500 750 Q240 650 205 465 L190 200 Z" stroke-width="8"/>
+</g>
+<text x="500" y="500" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="150" letter-spacing="6" fill="#fff" fill-opacity=".16" transform="rotate(-12 500 470)">BASQUETE</text>
+</svg>

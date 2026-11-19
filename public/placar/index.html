@@ -44,7 +44,7 @@
         <video id="video-standby" class="preenche-sobra" loop playsinline style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;"></video>
         <div id="standby-texto" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
             <div id="icone-esporte" style="font-size:9rem;line-height:1;">⚽</div>
-            <h1 style="color:#fff;font-size:2.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;font-family:sans-serif;">Clube dos Funcionários</h1>
+            <h1 style="color:#fff;font-size:2.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;font-family:sans-serif;"><span id="standby-cliente"></span></h1>
             <p style="color:#6b7280;font-size:1.25rem;font-family:sans-serif;animation:pulse 2s infinite;">Aguardando transmissão...</p>
         </div>
     </div>
@@ -200,8 +200,11 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/comum/marq.js"></script>
     <script>
-        const socket = io();
+        // Telão de UM placar (/p/<id>/). Sem acesso (TV não pareada), o
+        // marq.js leva para /telao, onde a TV mostra o código de pareamento.
+        const socket = MARQ.conectar({ telaSoLeitura: true });
         let estadoLocal = null;
 
         // ---- Autoplay sem clique -------------------------------------------
@@ -378,7 +381,8 @@
                 }
             }
             const arquivo = videoQueue.shift();
-            videoPlayer.src = `/videos/${arquivo}`;
+            // Relativo: /p/<placar>/videos/... (a mídia é do cliente do placar).
+            videoPlayer.src = `videos/${encodeURIComponent(arquivo)}`;
             videoPlayer.classList.remove('hidden');
             // Sem load() aqui de propósito: atribuir `src` já dispara o
             // carregamento, e o load() extra cancelava o play() de baixo.
@@ -923,8 +927,31 @@
             el.classList.add('ativo', alvo === 'timeA' ? 'set-point-mandante' : 'set-point-visitante');
         }
 
+        // Arte do cliente (MarQGol): as bordas pintam a sobra em volta da arte
+        // 2:1 e vêm do cadastro; trocar a arte no painel muda `arte.versao` e o
+        // telão recarrega para buscar as imagens novas (o style.css as
+        // referencia por URL fixa, revalidada pelo ETag).
+        let versaoArte = null;
+        function aplicarArte(dados) {
+            const arte = dados.arte || {};
+            if (versaoArte !== null && arte.versao !== versaoArte) { location.reload(); return; }
+            versaoArte = arte.versao;
+            const raiz = document.documentElement.style;
+            const b = arte.bordas || {};
+            for (const lado of ['topo', 'base', 'lados']) {
+                // As variáveis são usadas como background-image: cor lisa vira gradiente.
+                const v = b[lado] && (/gradient\(/.test(b[lado]) ? b[lado] : `linear-gradient(${b[lado]}, ${b[lado]})`);
+                if (v) raiz.setProperty('--borda-arte-' + lado, v);
+                else raiz.removeProperty('--borda-arte-' + lado);
+            }
+            const nome = document.getElementById('standby-cliente');
+            if (nome && nome.textContent !== (dados.clienteNome || '')) nome.textContent = dados.clienteNome || '';
+            if (dados.placar && document.title !== `${dados.placar.nome} — MarQGol`) document.title = `${dados.placar.nome} — MarQGol`;
+        }
+
         // Atualização principal da tela
         socket.on('atualizar_tela', (dados) => {
+            aplicarArte(dados);
             // Sincroniza relógio do cliente com servidor
             if (dados.serverTime && dados.cronometro) {
                 const clockOffset = Date.now() - dados.serverTime;

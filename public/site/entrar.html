@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1428">
+<title>Entrar — MarQGol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="/comum/ui.css">
+<link rel="stylesheet" href="/comum/site.css">
+</head>
+<body class="site">
+<header class="site-topo"><a class="marca" href="/">MarQ<span>Gol</span></a><nav><a class="btn leve" href="/cadastro">Criar conta</a></nav></header>
+<main class="caixa-form">
+  <section class="cartao">
+    <h1>Entrar</h1>
+    <p>Acesse a agenda, os placares e o controle.</p>
+    <div id="msg" hidden></div>
+    <form id="form" novalidate>
+      <div><label class="rotulo" for="email">E-mail</label><input class="campo" id="email" type="email" autocomplete="username" required></div>
+      <div><label class="rotulo" for="senha">Senha</label><input class="campo" id="senha" type="password" autocomplete="current-password" required></div>
+      <button class="btn grande marca-btn" type="submit" id="enviar">Entrar</button>
+    </form>
+    <p class="rodape-form"><a href="/esqueci-senha">Esqueci a senha</a> · Não tem conta? <a href="/cadastro">Teste grátis</a></p>
+  </section>
+</main>
+<script src="/comum/ui.js"></script>
+<script src="/comum/marq.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const msg = document.getElementById('msg');
+function mostrar(texto, ok = false) { msg.className = ok ? 'ok-form' : 'erro-form'; msg.textContent = texto; msg.hidden = false; }
+if (q.get('email') === 'link-invalido') mostrar('O link de confirmação é inválido ou venceu. Entre e peça outro.');
+
+// Só aceita voltar para um caminho do próprio site (nada de //outro-site).
+function destinoSeguro(padrao) {
+    const v = q.get('voltar') || '';
+    return /^\/(?!\/)/.test(v) ? v : padrao;
+}
+
+document.getElementById('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const btn = document.getElementById('enviar');
+    btn.disabled = true;
+    msg.hidden = true;
+    try {
+        const r = await MARQ.api('POST', '/api/auth/entrar', {
+            email: document.getElementById('email').value, senha: document.getElementById('senha').value
+        });
+        location.href = destinoSeguro(r.destino);
+    } catch (e) {
+        mostrar(e.message);
+        btn.disabled = false;
+    }
+});
+</script>
+</body>
+</html>

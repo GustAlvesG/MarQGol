@@ -13,8 +13,8 @@
    casados com a arte é uma ESCALA UNIFORME:
      - esticar quebraria: as posições são % da altura, mas as fontes são cqw,
        que só acompanha a largura;
-     - cortar (cover) comeria as logos do Clube e da CBC, que a arte põe nos
-       cantos de cima — e, em tela mais larga que 2:1, comeria a faixa dos
+     - cortar (cover) comeria o que a arte do cliente põe nos cantos de
+       cima (logos) — e, em tela mais larga que 2:1, comeria a faixa dos
        patrocinadores embaixo.
 
    Então o placar cresce até o maior 2:1 que cabe na janela e a SOBRA é pintada
@@ -35,9 +35,12 @@
     /* As bordas da arte, para pintar a sobra. O vídeo de standby
        (base/waiting.mp4, também 2:1) tem as mesmas bordas, por isso os três
        gradientes servem tanto ao placar quanto a ele. */
-    --borda-arte-topo: linear-gradient(to right, #3b0001 0%, #410010 10%, #47001f 20%, #50082a 30%, #5b1532 40%, #641f38 50%, #5f1934 60%, #560e2e 70%, #4a0126 80%, #420014 90%, #3b0001 100%);
-    --borda-arte-base: linear-gradient(to right, #130000 0%, #150008 10%, #170010 20%, #1a0215 30%, #1d0619 40%, #20091c 50%, #1f071a 60%, #1c0417 70%, #180013 80%, #15000a 90%, #130000 100%);
-    --borda-arte-lados: linear-gradient(to bottom, #3b0001 0%, #3b0001 12%, #6a0311 25%, #6a0311 72%, #3b0001 82%, #130000 90%, #130000 100%);
+    --borda-arte-topo: linear-gradient(#0d1a38, #0d1a38);
+    --borda-arte-base: linear-gradient(#060a14, #060a14);
+    --borda-arte-lados: linear-gradient(to bottom, #0d1a38 0%, #13285a 45%, #0f1f44 88.8%, #060a14 88.9%, #060a14 100%);
+    /* Valores da arte PADRÃO do MarQGol (public/arte-padrao, gerada por
+       scripts/gerar-arte-padrao.js). Cliente com arte própria manda as dele
+       pelo painel: o telão sobrescreve estas variáveis (aplicarArte). */
 }
 
 /* Pinta a sobra de quem mostra a arte 2:1 dentro de uma caixa da tela inteira:
@@ -53,7 +56,7 @@
 }
 
 body {
-    background-color: #3c0002;
+    background-color: #0d1a38;
     /* Sobra das LATERAIS (tela mais larga que 2:1): continua a coluna da borda
        esquerda/direita da arte. As faixas de cima e de baixo vêm do
        body::before / body::after. */
@@ -100,7 +103,7 @@ body::after {
     /* Responsividade: a maior área 2:1 que cabe na tela. */
     width: var(--placar-largura);
     aspect-ratio: 16 / 8;
-    background-color:#3c0002;
+    background-color:#0d1a38;
     background-image: url('./base/background.png');
     background-size: cover;
     background-position: center;
@@ -135,7 +138,7 @@ body::after {
 }
 
 /* ATENÇÃO ao que é cada um — os nomes enganam:
-     element-1 = a LOGO do esporte (o brasão "VOLEIBOL/FUTSAL/BASQUETE CFCSN")
+     element-1 = a LOGO do esporte (o brasão com o nome do esporte)
      element-2 = a BOLA
    (as variáveis `bola`/`logo` no changeCssSport de index.html já apontaram
    para o lado trocado; confira sempre o .png antes de mexer aqui.)
@@ -595,9 +598,9 @@ body::after {
 
 /* Escurece o resto da tela sem apagar: a faixa é o foco, o placar continua lá */
 @keyframes anim-veu {
-    0%        { background-color: rgba(15, 4, 12, 0); }
-    12%, 88%  { background-color: rgba(15, 4, 12, 0.55); }
-    100%      { background-color: rgba(15, 4, 12, 0); }
+    0%        { background-color: rgba(5, 10, 24, 0); }
+    12%, 88%  { background-color: rgba(5, 10, 24, 0.55); }
+    100%      { background-color: rgba(5, 10, 24, 0); }
 }
 
 #anim-faixa {
@@ -606,7 +609,7 @@ body::after {
     padding: 2.6cqw 5cqw;
     overflow: hidden; /* segura o brilho e o meio-tom */
 
-    background: linear-gradient(100deg, #2a0008 0%, #6a0414 42%, #8e1030 68%, #3c0002 100%);
+    background: linear-gradient(100deg, #07112a 0%, #143a8a 42%, #1f4fb5 68%, #0d1a38 100%);
     border-top: 0.35cqw solid #ffd76a;
     border-bottom: 0.35cqw solid #ffd76a;
     box-shadow: 0 0 6cqw rgba(0, 0, 0, 0.65);
@@ -863,12 +866,12 @@ body::after {
     font-size: 5.6cqw;
 }
 
-/* FALTA: mesma faixa, sem festa — grená fechado, fio rosado no lugar do
+/* FALTA: mesma faixa, sem festa — azul fechado, fio prateado no lugar do
    dourado e nenhum brilho varrendo. */
 #anim-overlay.anim-falta #anim-faixa {
-    background: linear-gradient(100deg, #1a0308 0%, #3c0002 45%, #52101f 72%, #240409 100%);
-    border-top-color: #e0a9b6;
-    border-bottom-color: #e0a9b6;
+    background: linear-gradient(100deg, #050b1c 0%, #0d1a38 45%, #183372 72%, #08122a 100%);
+    border-top-color: #a9c1e0;
+    border-bottom-color: #a9c1e0;
 }
 
 #anim-overlay.anim-falta #anim-brilho {
@@ -877,11 +880,11 @@ body::after {
 
 #anim-overlay.anim-falta #anim-acao,
 #anim-overlay.anim-falta #anim-numero {
-    color: #e0a9b6;
+    color: #a9c1e0;
 }
 
 #anim-overlay.anim-falta #anim-foto {
-    border-color: #e0a9b6;
+    border-color: #a9c1e0;
 }
 
 /* ================= FECHAMENTO DE SET / JOGO =================
@@ -919,9 +922,9 @@ body::after {
 }
 
 @keyframes set-veu {
-    0%       { background-color: rgba(15, 4, 12, 0); }
-    8%, 92%  { background-color: rgba(15, 4, 12, 0.72); }
-    100%     { background-color: rgba(15, 4, 12, 0); }
+    0%       { background-color: rgba(5, 10, 24, 0); }
+    8%, 92%  { background-color: rgba(5, 10, 24, 0.72); }
+    100%     { background-color: rgba(5, 10, 24, 0); }
 }
 
 #set-faixa {
@@ -930,7 +933,7 @@ body::after {
     padding: 3.4cqw 5cqw;
     overflow: hidden;
 
-    background: linear-gradient(100deg, #2a0008 0%, #6a0414 42%, #8e1030 68%, #3c0002 100%);
+    background: linear-gradient(100deg, #07112a 0%, #143a8a 42%, #1f4fb5 68%, #0d1a38 100%);
     border-top: 0.45cqw solid #ffd76a;
     border-bottom: 0.45cqw solid #ffd76a;
     box-shadow: 0 0 7cqw rgba(0, 0, 0, 0.7);
@@ -1319,7 +1322,7 @@ body::after {
     white-space: nowrap;
 
     /* Mesma linguagem das faixas: grená quase preto com fio dourado. */
-    background: rgba(15, 4, 12, 0.82);
+    background: rgba(5, 10, 24, 0.82);
     border: calc(0.002 * var(--placar-largura)) solid rgba(255, 215, 106, 0.6);
     border-radius: calc(0.012 * var(--placar-largura));
     padding: calc(0.002 * var(--placar-largura)) calc(0.012 * var(--placar-largura));
@@ -1359,7 +1362,7 @@ body::after {
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
     white-space: nowrap;
 
-    background: rgba(15, 4, 12, 0.82);
+    background: rgba(5, 10, 24, 0.82);
     border: calc(0.002 * var(--placar-largura)) solid rgba(255, 215, 106, 0.6);
     border-radius: calc(0.012 * var(--placar-largura));
     padding: calc(0.002 * var(--placar-largura)) calc(0.012 * var(--placar-largura));
