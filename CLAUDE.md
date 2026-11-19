@@ -68,7 +68,7 @@ A porta 4000 costuma estar ocupada pelo servidor de dev do usuário.
 | [src/auth.js](src/auth.js) | Sessão (Postgres), papéis, "entrar como", cookie de TV (`marq_tela`), CSRF por cabeçalho `X-MarQ`. |
 | [src/placares/gerenciador.js](src/placares/gerenciador.js) | Um estado por placar em memória + gravação no banco (~1 s), sala Socket.IO `placar:<id>`, súmula. |
 | [src/placares/sockets.js](src/placares/sockets.js) | Autorização do socket e handlers (mesmos eventos do sistema antigo, por sala). |
-| [src/servicos/](src/servicos/) | `agenda` (limite de jogos, formato de jogo), `contas` (cadastro, convite, senha), `cobranca` (Asaas, ciclo de status), `asaas`, `email`. |
+| [src/servicos/](src/servicos/) | `agenda` (limite de jogos, formato de jogo), `contas` (cadastro, convite, criar com senha sem e-mail, definir senha), `cobranca` (Asaas, ciclo de status), `asaas`, `email`. |
 | [src/rotas/](src/rotas/) | `publico` (auth), `telas` (pareamento), `arquivos` (páginas por placar, mídia, arte, uploads), `app` (área do cliente), `admin` (painel). |
 | [src/tarefas.js](src/tarefas.js) | A cada 5 min expira jogos; a cada hora revisa teste/inadimplência. |
 | `public/site/` | Venda, entrar, cadastro, senha, convite, termos (servido na raiz, `/entrar` → `entrar.html`). |
@@ -202,6 +202,11 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
 ### Configuração e mídia (base comum)
 - Mesmo desenho da mesa (escuro, tablet, sem Tailwind) via `ui.css`/`ui.js`. A
   mesa tem CSS próprio com os **mesmos tokens** — mude cores nos dois lugares.
+- Paleta da marca = apresentação do produto: fundo `#0D1017`, coral `--marca`
+  `#FF4D5E` (texto escuro em cima), âmbar `--amarelo` `#FFB020`, azul
+  `--azul-marca` `#5AA9FF`, seções claras `--creme` `#F4F3EF` com `--tinta` e
+  carmim `--marca-forte` `#C8102E`. Logotipo: "Mar<span>Q</span>Gol" em Barlow
+  Condensed 800, Q em coral. Tokens em `ui.css`; não redefina `--marca` local.
 - Nenhuma tela de operação usa `alert()`/`confirm()`: use `avisar()`,
   `confirmar()` (Promise) e `toast()` de `ui.js`. Destrutivo de verdade (zerar
   tudo) é `data-segurar` (evento `segurado`).

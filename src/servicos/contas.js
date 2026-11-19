@@ -82,6 +82,36 @@ function criarContas({ repos, email, cfg }) {
         return usuario;
     }
 
+    // Sem e-mail: quem cadastra já define a senha (combinada por fora com a
+    // pessoa). `clienteId` null = superadmin. O e-mail fica dado como
+    // confirmado: foi um administrador que o informou.
+    async function criarComSenha(clienteId, d) {
+        validarPessoa(d);
+        if (!seg.senhaValida(d.senha)) throw new ErroRegra('A senha precisa ter pelo menos 8 caracteres.');
+        const emailNorm = seg.normalizarEmail(d.email);
+        if (await repos.usuarios.porEmail(emailNorm)) throw new ErroRegra('Este e-mail já tem uma conta no MarQGol.', 409);
+        let papel = 'superadmin';
+        if (clienteId) {
+            papel = d.papel === 'admin' ? 'admin' : 'operador';
+            const cliente = await repos.clientes.obter(clienteId);
+            const [lim, uso] = await Promise.all([repos.clientes.limites(cliente), repos.clientes.uso(clienteId)]);
+            const v = limites.verificar('max_usuarios', uso.max_usuarios, lim);
+            if (!v.ok) throw new ErroRegra(v.mensagem, 403, 'limite');
+        }
+        return repos.usuarios.criar({
+            cliente_id: clienteId || null, nome: String(d.nome).trim().slice(0, 120), email: emailNorm, papel,
+            senha_hash: await seg.gerarHashSenha(d.senha), email_verificado_em: new Date()
+        });
+    }
+
+    // Senha definida por um administrador (sem link por e-mail). Derruba as
+    // sessões abertas desse usuário, menos `manterSessao` (quem troca a própria).
+    async function definirSenha(usuarioId, senha, { manterSessao = '' } = {}) {
+        if (!seg.senhaValida(senha)) throw new ErroRegra('A senha precisa ter pelo menos 8 caracteres.');
+        await db.query(`DELETE FROM sessoes WHERE (sess->>'usuarioId')::int = $1 AND sid <> $2`, [usuarioId, manterSessao]);
+        return repos.usuarios.atualizar(usuarioId, { senha_hash: await seg.gerarHashSenha(senha), email_verificado_em: new Date() });
+    }
+
     async function reenviarConvite(clienteId, usuarioId, quem) {
         const u = await repos.usuarios.doCliente(clienteId, usuarioId);
         if (!u || u.senha_hash) throw new ErroRegra('Convite não encontrado ou já aceito.', 404);
@@ -131,7 +161,7 @@ function criarContas({ repos, email, cfg }) {
         return u;
     }
 
-    return { cadastrar, enviarVerificacao, verificarEmail, convidar, reenviarConvite, consultarConvite, aceitarConvite, pedirRedefinicao, redefinir, autenticar };
+    return { emailAtivo: !!(cfg.email && cfg.email.host), cadastrar, enviarVerificacao, verificarEmail, convidar, criarComSenha, definirSenha, reenviarConvite, consultarConvite, aceitarConvite, pedirRedefinicao, redefinir, autenticar };
 }
 
 module.exports = { criarContas };

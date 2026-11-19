@@ -15,17 +15,17 @@ function criarEmail(cfg) {
         : null;
 
     function moldura(titulo, corpoHtml) {
-        return `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#0f141c;font-family:Arial,sans-serif;color:#e8edf4">
+        return `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#0d1017;font-family:Arial,sans-serif;color:#f4f3ef">
 <div style="max-width:560px;margin:0 auto;padding:32px 20px">
-<div style="font-size:24px;font-weight:800;letter-spacing:.02em;margin-bottom:24px">MarQ<span style="color:#f5b82e">Gol</span></div>
-<div style="background:#18202c;border-radius:16px;padding:24px">
+<div style="font-size:24px;font-weight:800;letter-spacing:.02em;margin-bottom:24px">Mar<span style="color:#ff4d5e">Q</span>Gol</div>
+<div style="background:#13161d;border-radius:16px;padding:24px">
 <h1 style="font-size:20px;margin:0 0 16px">${titulo}</h1>${corpoHtml}</div>
 <p style="color:#8a96a8;font-size:12px;margin-top:24px">Você recebeu este e-mail porque tem uma conta no MarQGol. Se não reconhece esta mensagem, ignore.</p>
 </div></body></html>`;
     }
 
     function botao(url, texto) {
-        return `<p style="margin:24px 0"><a href="${url}" style="background:#f5b82e;color:#111;padding:14px 22px;border-radius:10px;text-decoration:none;font-weight:700">${texto}</a></p>
+        return `<p style="margin:24px 0"><a href="${url}" style="background:#ff4d5e;color:#0d1017;padding:14px 22px;border-radius:10px;text-decoration:none;font-weight:700">${texto}</a></p>
 <p style="color:#8a96a8;font-size:13px">Se o botão não funcionar, copie este endereço: <br><span style="color:#c9d3e0">${url}</span></p>`;
     }
 

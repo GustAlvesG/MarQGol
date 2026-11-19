@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0d1a38">
+<meta name="theme-color" content="#0d1017">
 <title>Parear TV — MarQGol</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@800&family=Bebas+Neue&display=swap">
 <style>
 /* Página que a TV abre UMA vez: mostra um código para alguém digitar no
    celular/tablet já logado. Depois de pareada, /telao leva direto ao placar.
@@ -15,33 +15,33 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  font-family: "Barlow", system-ui, sans-serif; color: #eaf0f7;
-  background: radial-gradient(ellipse at 50% 38%, #1d3f8a 0%, #0d1a38 55%, #060a14 100%);
+  font-family: "Barlow", system-ui, sans-serif; color: #f4f3ef;
+  background: radial-gradient(ellipse at 50% 38%, #2a1418 0%, #0d1017 60%, #05070b 100%);
   display: grid; place-items: center; overflow: hidden; cursor: none;
 }
 main { text-align: center; padding: 4vmin; width: min(1100px, 100%); }
-.marca { font-family: "Bebas Neue", Impact, sans-serif; font-size: 8vmin; letter-spacing: .04em; margin: 0 0 3vmin; }
-.marca span { color: #f5b82e; }
-.instrucao { font-size: 3.2vmin; line-height: 1.4; color: #c9d6ea; margin: 0 auto 4vmin; max-width: 80vmin; }
+.marca { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-weight: 800; font-size: 8vmin; letter-spacing: .01em; margin: 0 0 3vmin; }
+.marca span { color: #ff4d5e; }
+.instrucao { font-size: 3.2vmin; line-height: 1.4; color: #b9c0cc; margin: 0 auto 4vmin; max-width: 80vmin; }
 .instrucao b { color: #fff; }
 .codigo { display: flex; justify-content: center; gap: 1.6vmin; margin: 0 0 4vmin; }
 .codigo span {
   font-family: "Bebas Neue", Impact, sans-serif; font-size: 17vmin; line-height: 1;
   width: 13vmin; padding: 2vmin 0 1vmin; border-radius: 2.2vmin;
-  background: rgba(255,255,255,.07); border: .5vmin solid rgba(255,255,255,.22);
+  background: #13161d; border: .5vmin solid #2a3140;
 }
 .codigo span:nth-child(3) { margin-right: 3vmin; }
-.passos { display: flex; justify-content: center; gap: 4vmin; font-size: 2.4vmin; color: #8d9bb0; margin-bottom: 3vmin; flex-wrap: wrap; }
+.passos { display: flex; justify-content: center; gap: 4vmin; font-size: 2.4vmin; color: #9aa2b0; margin-bottom: 3vmin; flex-wrap: wrap; }
 .passos div { max-width: 26vmin; }
-.passos b { display: block; color: #f5b82e; font-family: "Bebas Neue", Impact, sans-serif; font-size: 4vmin; }
-.rodape { font-size: 2vmin; color: #5d6a7e; }
+.passos b { display: block; color: #ffb020; font-family: "Bebas Neue", Impact, sans-serif; font-size: 4vmin; }
+.rodape { font-size: 2vmin; color: #5a606b; }
 .ok { font-family: "Bebas Neue", Impact, sans-serif; font-size: 10vmin; color: #22c55e; }
 .erro { color: #ffb4b4; font-size: 3vmin; }
 </style>
 </head>
 <body>
 <main>
-  <h1 class="marca">MarQ<span>Gol</span></h1>
+  <h1 class="marca">Mar<span>Q</span>Gol</h1>
   <div id="conteudo">
     <p class="instrucao">Preparando o código de pareamento…</p>
   </div>

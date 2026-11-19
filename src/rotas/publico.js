@@ -75,6 +75,8 @@ function rotasPublicas({ repos, contas }) {
         res.json({
             id: u.id, nome: u.nome, email: u.email, papel: u.papel, superadmin: u.superadmin,
             impersonando: u.impersonando, emailVerificado: u.emailVerificado,
+            // Sem SMTP, as telas oferecem "definir senha" no lugar de convite por e-mail.
+            emailAtivo: contas.emailAtivo,
             cliente: u.cliente ? { id: u.cliente.id, nome: u.cliente.nome, status: u.cliente.status, teste_ate: u.cliente.teste_ate } : null
         });
     });

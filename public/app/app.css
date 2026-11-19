@@ -2,7 +2,7 @@
    que é próprio desta tela: casca com menu lateral, faixas de aviso, cartões
    de uso, grade de times, tabelas e a prévia da arte do telão. */
 
-:root { --marca: #f5b82e; --menu-w: 232px; --topo-h: 60px; }
+:root { --menu-w: 232px; --topo-h: 60px; }
 
 /* ---------- Casca ---------- */
 .app-topo { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px; height: var(--topo-h); padding: 0 16px; padding-top: env(safe-area-inset-top, 0px); background: var(--surface); border-bottom: 1px solid var(--line); }
@@ -65,7 +65,7 @@
 .btn.peq { min-height: 42px; padding: 0 12px; font-size: 15px; border-radius: 10px; }
 .btn.peq svg { font-size: 18px; }
 .btn.peq.icone { width: 42px; padding: 0; }
-.btn.marca { background: var(--marca); color: #1d1400; border-color: var(--marca); }
+.btn.marca { background: var(--marca); color: var(--marca-texto); border-color: var(--marca); }
 textarea.campo { min-height: 96px; padding: 10px 14px; resize: vertical; }
 .campo.peq { min-height: 44px; font-size: 16px; }
 .form-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -148,7 +148,7 @@ textarea.campo { min-height: 96px; padding: 10px 14px; resize: vertical; }
 .tag.vivo { background: var(--ok-fundo); color: var(--ok); }
 .tag.alerta { background: var(--run-fundo); color: var(--run); }
 .tag.perigo { background: var(--perigo-fundo); color: #ffb4b4; }
-.tag.marca { background: #2e2408; color: var(--marca); }
+.tag.marca { background: #2e1418; color: var(--marca); }
 
 /* Escalação */
 .escalacao { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -222,7 +222,7 @@ pre.exemplo { background: var(--bg); border: 1px solid var(--line); border-radiu
 .arte-slot .acoes .btn { flex: 1; }
 .grupo-arte h3 { margin: 4px 0 10px; font-family: var(--f-rot); font-weight: 800; font-size: 20px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .gabarito { position: relative; aspect-ratio: 2 / 1; max-width: 440px; border-radius: 10px; background: #1b2533; border: 1px dashed var(--muted); overflow: hidden; }
-.gabarito .faixa-pat { position: absolute; left: 0; right: 0; top: 88.87%; bottom: 0; background: rgba(245,184,46,.35); border-top: 2px solid var(--marca); }
+.gabarito .faixa-pat { position: absolute; left: 0; right: 0; top: 88.87%; bottom: 0; background: rgba(255,77,94,.3); border-top: 2px solid var(--marca); }
 .gabarito .rot { position: absolute; font-size: 12px; color: var(--fg); font-family: var(--f-rot); letter-spacing: .06em; text-transform: uppercase; }
 .bordas-prev { display: grid; grid-template-columns: 1fr 3fr 1fr; grid-template-rows: 28px 80px 28px; gap: 0; max-width: 440px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
 .bordas-prev .b-topo { grid-column: 1 / -1; }

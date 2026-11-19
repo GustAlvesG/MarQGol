@@ -1,14 +1,14 @@
 /* Painel de gestão (dono do SaaS). Parte da base de /comum/ui.css; aqui só o
    que é próprio do painel: marca, indicadores, tabelas e formulários densos.
    Feito para desktop, utilizável em tablet (≥ 768 px). */
-:root { --amarelo: #f5b82e; --alerta-fundo: #2f2208; }
+:root { --alerta-fundo: #2f2208; }
 
 /* ---------- Cabeçalho ---------- */
 .adm-topo { grid-template-columns: auto 1fr auto; gap: 16px; }
 .adm-topo .abas { justify-self: center; }
 .marca { display: flex; flex-direction: column; line-height: 1; color: var(--fg); text-decoration: none; }
-.marca-nome { font-family: var(--f-num); font-size: 32px; letter-spacing: .03em; }
-.marca-nome b { font-weight: 400; color: var(--amarelo); }
+.marca-nome { font-family: var(--f-rot); font-weight: 800; font-size: 30px; letter-spacing: .01em; }
+.marca-nome b { font-weight: inherit; color: var(--marca); }
 .marca-sub { font-family: var(--f-rot); font-weight: 700; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 .quem { color: var(--muted); font-size: 14px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-topo .aba { height: 44px; padding: 0 14px; font-size: 17px; }
@@ -32,8 +32,8 @@ a.kpi:hover { border-color: var(--faint); }
 .kpi .rot svg { font-size: 18px; }
 .kpi .val { font-family: var(--f-num); font-size: 56px; line-height: 1; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi .det { color: var(--muted); font-size: 14px; }
-.kpi.destaque { grid-column: span 2; background: linear-gradient(135deg, #1a2333, var(--surface)); }
-.kpi.destaque .val { color: var(--amarelo); font-size: 64px; }
+.kpi.destaque { grid-column: span 2; background: linear-gradient(135deg, #2a1418, var(--surface)); border-color: #4a1d24; }
+.kpi.destaque .val { color: var(--marca); font-size: 64px; }
 .kpi.ok .val { color: var(--ok); }
 .kpi.info .val { color: var(--info); }
 .kpi.alerta .val { color: var(--run); }
@@ -194,3 +194,15 @@ textarea.campo { padding: 12px 14px; min-height: 96px; resize: vertical; line-he
     .kpi.destaque { grid-column: auto; }
     .kpis, .kpis.cinco { grid-template-columns: 1fr; }
 }
+
+/* ---------- Usuários e equipe (ações por linha, acesso sem e-mail) ---------- */
+.btn.peq { min-height: 40px; padding: 0 12px; font-size: 15px; border-radius: 10px; }
+.btn.peq svg { font-size: 18px; }
+.btn.peq.icone { width: 40px; padding: 0; }
+.acoes-linha { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.segmento { position: relative; cursor: pointer; }
+.segmento:has(input:checked) { background: var(--surface-3); color: var(--fg); box-shadow: inset 0 0 0 2px var(--fg); }
+.segmento input { position: absolute; opacity: 0; pointer-events: none; }
+.senha-linha { display: flex; gap: 8px; }
+.senha-linha .campo { flex: 1; font-family: ui-monospace, Consolas, monospace; letter-spacing: .04em; }
+.tabela .princ span.tag { display: inline-block; font-size: 12px; vertical-align: 2px; color: var(--info); }

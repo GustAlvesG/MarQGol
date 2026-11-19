@@ -59,15 +59,21 @@ Públicas: `GET /api/health`, `GET /api/publico/planos`, `POST /api/auth/cadastr
 times (`GET`, `POST`, `PATCH :id`, `DELETE :id`, `GET/POST :id/jogadores`), `PATCH/DELETE jogadores/:id`;
 jogos (`GET ?data&de&ate&status&placar`, `POST`, `GET :id` com súmula, `PATCH :id`,
 `POST :id/cancelar`, `POST :id/reagendar`, `PUT :id/escalacao/:timeId`);
-usuários✱ (`GET`, `POST` convite, `PATCH :id`, `DELETE :id`, `POST :id/reenviar`);
+usuários✱ (`GET`, `POST` — com `senha` cria já com acesso, sem `senha` manda convite —, `PATCH :id` (`papel`, `ativo`, `nome`, `senha`), `DELETE :id`, `POST :id/reenviar`);
 assinatura (`GET`, `POST`✱ `{planoId}`, `POST atualizar`✱, `POST cancelar`✱);
 arquivos (`POST arquivos/foto|video-jogador?nome=`); arte (`GET arte`, `PUT/DELETE arte/<slot>`✱, `POST arte-bordas`✱).
 
 Mídia: `GET /api/midia`, `POST /api/midia/:tipo?nome=`, `DELETE /api/midia/:tipo/:nome`.
 
 Painel (`/api/admin`, só superadmin): `indicadores`, `clientes` (lista, detalhe,
-criar, `PATCH`, `DELETE` com slug, `:id/entrar`, `:id/reenviar-acesso`, `:id/arte*`),
+criar — com `senhaAdmin` o admin do cliente já nasce com senha —, `PATCH`, `DELETE` com slug, `:id/entrar`,
+`:id/reenviar-acesso`, `:id/arte*`, `:id/usuarios` `POST` e `:id/usuarios/:uid` `PATCH`/`DELETE`),
+`superadmins` (`GET`, `POST`, `PATCH :id`, `DELETE :id`; não remove/desativa a si mesmo nem o último ativo),
 `sair-cliente`, `planos` (`GET`, `POST`, `PUT :id`), `auditoria`, `revisar-status`.
+
+**Sem SMTP** (`SMTP_HOST` vazio): `GET /api/auth/eu` e o resumo trazem `emailAtivo: false`; as telas
+passam a oferecer "Definir senha agora" no lugar do convite e escondem o aviso de confirmar e-mail.
+Senha definida por administrador marca o e-mail como confirmado e derruba as sessões abertas da pessoa.
 
 Páginas: `/` (site), `/entrar`, `/cadastro`, `/esqueci-senha`, `/redefinir-senha`,
 `/convite`, `/termos`, `/app/`, `/admin/`, `/telao`, `/p/<placar>/` (telão),

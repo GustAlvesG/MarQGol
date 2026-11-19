@@ -144,14 +144,14 @@
             el.innerHTML = `
             ${APP.tituloPagina('Usuários', 'Quem pode entrar na conta. <b>Administrador</b> gerencia tudo; <b>operador</b> agenda jogos, cadastra times e opera os placares.',
                 `<span class="contador ${uso >= lim ? 'cheio' : ''}"><b>${uso}</b> de <b>${lim}</b> usuários</span>
-                 <button type="button" class="btn claro" data-acao="convidar">${ic('plus')}Convidar</button>`)}
+                 <button type="button" class="btn claro" data-acao="convidar">${ic('plus')}Novo usuário</button>`)}
             <section class="cartao"><div class="lista">${lista.map(u => `
                 <div class="usuario-linha" data-id="${u.id}">
                     <div class="txt"><b>${esc(u.nome)}${u.id === eu ? ' <span class="tag info">Você</span>' : ''}</b><span>${esc(u.email)}</span>
                         <div class="linha" style="gap:6px;margin-top:4px">
                             ${u.ativo ? '' : '<span class="tag perigo">Desativado</span>'}
                             ${u.convite_pendente ? '<span class="tag alerta">Convite pendente</span>' : ''}
-                            ${!u.convite_pendente && !u.email_verificado_em ? '<span class="tag">E-mail não confirmado</span>' : ''}
+                            ${!u.convite_pendente && !u.email_verificado_em && R.usuario.emailAtivo ? '<span class="tag">E-mail não confirmado</span>' : ''}
                             <span class="ajuda" style="margin:0">${u.ultimo_login_em ? 'Último acesso ' + esc(MARQ.dataHora(u.ultimo_login_em)) : 'Nunca entrou'}</span>
                         </div></div>
                     ${u.id === eu ? `<span class="tag ${u.papel === 'admin' ? 'marca' : ''}">${u.papel === 'admin' ? 'Administrador' : 'Operador'}</span>` : `<div class="acoes">
@@ -160,6 +160,7 @@
                             <option value="admin" ${u.papel === 'admin' ? 'selected' : ''}>Administrador</option>
                         </select>
                         ${u.convite_pendente ? `<button type="button" class="btn peq" data-acao="reenviar">${ic('refresh')}Reenviar convite</button>` : ''}
+                        <button type="button" class="btn peq" data-acao="senha">${ic('lock')}Senha</button>
                         <button type="button" class="btn peq" data-acao="ativo" data-ativo="${u.ativo}">${ic('power')}${u.ativo ? 'Desativar' : 'Ativar'}</button>
                         <button type="button" class="btn peq icone perigo" data-acao="remover" aria-label="Remover ${esc(u.nome)}" title="Remover">${ic('trash')}</button>
                     </div>`}
@@ -181,6 +182,7 @@
             const nome = linha && linha.querySelector('.txt b').firstChild.textContent;
             switch (b.dataset.acao) {
                 case 'convidar': convidar(() => desenhar().catch(APP.falhou)); break;
+                case 'senha': definirSenha(id, nome, () => desenhar().catch(APP.falhou)); break;
                 case 'reenviar':
                     await APP.acao(b, async () => { await MARQ.api('POST', `/api/app/usuarios/${id}/reenviar`); toast('Convite reenviado.'); });
                     break;
@@ -199,24 +201,73 @@
         await desenhar();
     });
 
-    function convidar(aposSalvar) {
+    // Campo de senha visível com gerador: quem cadastra passa a senha para a pessoa.
+    const campoSenha = (rotulo) => `<label class="inteira"><span class="rotulo">${esc(rotulo)}</span>
+        <div class="acoes" style="flex-wrap:nowrap"><input class="campo" name="senha" autocomplete="off" spellcheck="false" minlength="8" placeholder="Mínimo de 8 caracteres" style="font-family:ui-monospace,Consolas,monospace">
+        <button type="button" class="btn" data-gerar>${ic('refresh')}Gerar</button></div>
+        <span class="ajuda">Anote e passe para a pessoa. Ela pode trocar depois em “Minha conta”.</span></label>`;
+    function ligarSenha(f) {
+        f.senha.value = MARQ.gerarSenha();
+        f.querySelector('[data-gerar]').addEventListener('click', () => { f.senha.value = MARQ.gerarSenha(); f.senha.select(); });
+    }
+    const dadosDeAcesso = (nome, email, senha) =>
+        avisar('Pronto', `Passe o acesso para ${nome}:\n\nEndereço: ${location.origin}/entrar\nE-mail: ${email}\nSenha: ${senha}`);
+
+    async function convidar(aposSalvar) {
+        let porEmail = false;
+        try { porEmail = !!(await MARQ.api('GET', '/api/auth/eu')).emailAtivo; } catch { /* sem e-mail */ }
         APP.folha({
-            titulo: 'Convidar usuário',
-            sub: 'A pessoa recebe um e-mail para criar a senha. O convite vale 7 dias.',
+            titulo: 'Novo usuário',
+            sub: 'Defina a senha agora e passe para a pessoa, ou envie um convite por e-mail para ela criar a própria.',
             classe: 'media',
             corpo: `<div class="form-grade">
                 <label><span class="rotulo">Nome</span><input class="campo" name="nome" maxlength="120" required></label>
-                <label><span class="rotulo">E-mail</span><input class="campo" type="email" name="email" required autocomplete="off"></label>
+                <label><span class="rotulo">E-mail (login)</span><input class="campo" type="email" name="email" required autocomplete="off"></label>
                 <div class="inteira"><span class="rotulo">Papel</span><div class="segmentos" role="radiogroup">
                     <label class="segmento"><input type="radio" name="papel" value="operador" checked>Operador<small>Agenda, times e placares</small></label>
                     <label class="segmento"><input type="radio" name="papel" value="admin">Administrador<small>Tudo, inclusive assinatura</small></label>
-                </div></div></div>`,
-            botoes: [{ rotulo: 'Cancelar', cancelar: true }, { rotulo: 'Enviar convite', classe: 'claro', enviar: true }],
+                </div></div>
+                <div class="inteira"><span class="rotulo">Acesso</span><div class="segmentos" role="radiogroup">
+                    <label class="segmento"><input type="radio" name="acesso" value="senha" ${porEmail ? '' : 'checked'}>Definir senha agora<small>Você passa a senha</small></label>
+                    <label class="segmento"><input type="radio" name="acesso" value="convite" ${porEmail ? 'checked' : ''} ${porEmail ? '' : 'disabled'}>Convite por e-mail<small>${porEmail ? 'A pessoa cria a senha' : 'Indisponível no momento'}</small></label>
+                </div></div>
+                <div class="inteira" data-bloco-senha>${campoSenha('Senha inicial')}</div></div>`,
+            botoes: [{ rotulo: 'Cancelar', cancelar: true }, { rotulo: 'Criar usuário', classe: 'claro', enviar: true }],
+            aoAbrir: (f) => {
+                ligarSenha(f);
+                const atualizar = () => { f.querySelector('[data-bloco-senha]').hidden = f.querySelector('input[name=acesso]:checked').value !== 'senha'; };
+                f.querySelectorAll('input[name=acesso]').forEach(r => r.addEventListener('change', atualizar));
+                atualizar();
+            },
             aoEnviar: async (f) => {
                 if (!f.nome.value.trim() || !f.email.value.trim()) { await avisar('Faltam dados', 'Informe o nome e o e-mail.'); return false; }
-                await MARQ.api('POST', '/api/app/usuarios', { nome: f.nome.value.trim(), email: f.email.value.trim(), papel: f.querySelector('input[name=papel]:checked').value });
-                toast('Convite enviado.');
+                const corpo = { nome: f.nome.value.trim(), email: f.email.value.trim(), papel: f.querySelector('input[name=papel]:checked').value };
+                const comSenha = f.querySelector('input[name=acesso]:checked').value === 'senha';
+                if (comSenha) {
+                    corpo.senha = f.senha.value.trim();
+                    if (corpo.senha.length < 8) { await avisar('Senha curta', 'A senha precisa ter pelo menos 8 caracteres.'); return false; }
+                }
+                await MARQ.api('POST', '/api/app/usuarios', corpo);
                 aposSalvar();
+                if (comSenha) dadosDeAcesso(corpo.nome, corpo.email, corpo.senha); else toast('Convite enviado.');
+            }
+        });
+    }
+
+    function definirSenha(id, nome, aposSalvar) {
+        APP.folha({
+            titulo: `Nova senha — ${nome}`,
+            sub: 'As sessões abertas dessa pessoa são encerradas; ela entra de novo com a senha nova.',
+            classe: 'media',
+            corpo: `<div class="form-grade">${campoSenha('Nova senha')}</div>`,
+            botoes: [{ rotulo: 'Cancelar', cancelar: true }, { rotulo: 'Definir senha', classe: 'claro', enviar: true }],
+            aoAbrir: ligarSenha,
+            aoEnviar: async (f) => {
+                const senha = f.senha.value.trim();
+                if (senha.length < 8) { await avisar('Senha curta', 'A senha precisa ter pelo menos 8 caracteres.'); return false; }
+                await MARQ.api('PATCH', '/api/app/usuarios/' + id, { senha });
+                aposSalvar();
+                avisar('Senha definida', `Nova senha de ${nome}:\n${senha}\n\nPasse para a pessoa por um canal seguro.`);
             }
         });
     }

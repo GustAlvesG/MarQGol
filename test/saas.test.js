@@ -381,3 +381,88 @@ test('assinatura via Asaas (fetch falso)', opcoes, async (t) => {
     assert.equal(put.corpo.value, 99);
     assert.equal(put.corpo.updatePendingPayments, true);
 });
+
+test('gestão de usuários sem e-mail (senha definida por quem cadastra)', opcoes, async (t) => {
+    const S = await subirServidor();
+    t.after(() => S.fechar());
+    const dono = S.navegador();
+    assert.equal((await dono.post('/api/auth/entrar', { email: 'dono@marqgol.test', senha: 'senha-do-dono' })).status, 200);
+    const enviadosAntes = S.marq.email.enviados.length;
+    const planos = (await dono.get('/api/admin/planos')).dado.planos;
+
+    let cliente;
+    await t.test('painel cria cliente com a senha do admin, sem e-mail', async () => {
+        const r = await dono.post('/api/admin/clientes', {
+            nome: 'Clube Sem Email', email: 'adm@semail.test', plano_id: planos[1].id, status: 'ativo', senhaAdmin: 'senha-do-adm'
+        });
+        assert.equal(r.status, 201);
+        cliente = r.dado;
+        assert.equal(S.marq.email.enviados.length, enviadosAntes, 'nenhum e-mail enviado');
+        const adm = S.navegador();
+        assert.equal((await adm.post('/api/auth/entrar', { email: 'adm@semail.test', senha: 'senha-do-adm' })).status, 200);
+        const eu = (await adm.get('/api/auth/eu')).dado;
+        assert.equal(eu.papel, 'admin');
+        assert.equal(eu.emailVerificado, true);
+        assert.equal(eu.emailAtivo, false);
+    });
+
+    await t.test('senha curta do admin é recusada sem criar o cliente', async () => {
+        const r = await dono.post('/api/admin/clientes', { nome: 'Curto', email: 'c@semail.test', plano_id: planos[0].id, senhaAdmin: '123' });
+        assert.equal(r.status, 422);
+        const lista = (await dono.get('/api/admin/clientes?busca=Curto')).dado;
+        assert.equal(lista.length, 0);
+    });
+
+    let operadorId;
+    await t.test('admin do cliente cria operador com senha e redefine a senha dele', async () => {
+        const adm = S.navegador();
+        await adm.post('/api/auth/entrar', { email: 'adm@semail.test', senha: 'senha-do-adm' });
+        const r = await adm.post('/api/app/usuarios', { nome: 'Op', email: 'op@semail.test', papel: 'operador', senha: 'senha-do-op' });
+        assert.equal(r.status, 201);
+        operadorId = r.dado.id;
+        const op = S.navegador();
+        assert.equal((await op.post('/api/auth/entrar', { email: 'op@semail.test', senha: 'senha-do-op' })).status, 200);
+        assert.equal((await adm.patch('/api/app/usuarios/' + operadorId, { senha: 'curta' })).status, 422);
+        assert.equal((await adm.patch('/api/app/usuarios/' + operadorId, { senha: 'outra-senha-op' })).status, 200);
+        // A sessão antiga do operador caiu; a senha nova vale.
+        assert.equal((await op.get('/api/auth/eu')).status, 401);
+        assert.equal((await op.post('/api/auth/entrar', { email: 'op@semail.test', senha: 'outra-senha-op' })).status, 200);
+    });
+
+    await t.test('painel gerencia usuários do cliente', async () => {
+        const novo = await dono.post(`/api/admin/clientes/${cliente.id}/usuarios`, { nome: 'Op2', email: 'op2@semail.test', senha: 'senha-op-dois' });
+        assert.equal(novo.status, 201);
+        assert.equal((await dono.patch(`/api/admin/clientes/${cliente.id}/usuarios/${operadorId}`, { papel: 'admin', senha: 'senha-pelo-painel' })).status, 200);
+        const op = S.navegador();
+        assert.equal((await op.post('/api/auth/entrar', { email: 'op@semail.test', senha: 'senha-pelo-painel' })).status, 200);
+        assert.equal((await op.get('/api/auth/eu')).dado.papel, 'admin');
+        assert.equal((await dono.patch(`/api/admin/clientes/${cliente.id}/usuarios/${novo.dado.id}`, { ativo: false })).status, 200);
+        assert.equal((await S.navegador().post('/api/auth/entrar', { email: 'op2@semail.test', senha: 'senha-op-dois' })).status, 401);
+        assert.equal((await dono.del(`/api/admin/clientes/${cliente.id}/usuarios/${novo.dado.id}`)).status, 200);
+        // Usuário de outro cliente não é alcançável por este caminho.
+        assert.equal((await dono.patch(`/api/admin/clientes/${cliente.id + 999}/usuarios/${operadorId}`, { ativo: false })).status, 404);
+    });
+
+    await t.test('superadmins: criar, trocar senha, proteger o último', async () => {
+        const lista = (await dono.get('/api/admin/superadmins')).dado;
+        assert.equal(lista.length, 1);
+        const euId = lista[0].id;
+        assert.equal(lista[0].voce, true);
+        const r = await dono.post('/api/admin/superadmins', { nome: 'Sócio', email: 'socio@marqgol.test', senha: 'senha-do-socio' });
+        assert.equal(r.status, 201);
+        const socio = S.navegador();
+        assert.equal((await socio.post('/api/auth/entrar', { email: 'socio@marqgol.test', senha: 'senha-do-socio' })).status, 200);
+        assert.equal((await socio.get('/api/admin/indicadores')).status, 200);
+        // Trocar a própria senha mantém a sessão atual.
+        assert.equal((await dono.patch('/api/admin/superadmins/' + euId, { senha: 'nova-senha-dono' })).status, 200);
+        assert.equal((await dono.get('/api/admin/indicadores')).status, 200);
+        assert.equal((await dono.patch('/api/admin/superadmins/' + euId, { ativo: false })).status, 422);
+        assert.equal((await dono.del('/api/admin/superadmins/' + euId)).status, 422);
+        assert.equal((await dono.del('/api/admin/superadmins/' + r.dado.id)).status, 200);
+        assert.ok([401, 403].includes((await socio.get('/api/admin/indicadores')).status), 'sessão do removido não vale mais');
+        // Cliente comum não acessa a lista.
+        const adm = S.navegador();
+        await adm.post('/api/auth/entrar', { email: 'adm@semail.test', senha: 'senha-do-adm' });
+        assert.equal((await adm.get('/api/admin/superadmins')).status, 403);
+    });
+});

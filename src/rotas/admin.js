@@ -75,6 +75,9 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
         if (documento && !seg.documentoValido(documento)) throw new ErroRegra('CPF ou CNPJ inválido.');
         const plano = await repos.planos.obter(num(b.plano_id));
         if (!plano) throw new ErroRegra('Escolha um plano.');
+        // Acesso do administrador: senha definida agora (sem e-mail) ou convite.
+        const senhaAdmin = b.senhaAdmin ? String(b.senhaAdmin) : '';
+        if (senhaAdmin && !seg.senhaValida(senhaAdmin)) throw new ErroRegra('A senha do administrador precisa ter pelo menos 8 caracteres.');
         // Confere antes de criar: o convite falharia depois e deixaria o cliente órfão.
         if (b.convidarAdmin !== false && await repos.usuarios.porEmail(email)) {
             throw new ErroRegra('Este e-mail já tem uma conta no MarQGol. Use outro e-mail para o administrador.', 409);
@@ -88,7 +91,9 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
         });
         await repos.placares.criar(cliente.id, 'Quadra 1');
         if (b.convidarAdmin !== false) {
-            await contas.convidar(cliente.id, { nome: texto(b.nomeAdmin) || nome, email, papel: 'admin' }, req.usuario);
+            const pessoa = { nome: texto(b.nomeAdmin) || nome, email, papel: 'admin' };
+            if (senhaAdmin) await contas.criarComSenha(cliente.id, { ...pessoa, senha: senhaAdmin });
+            else await contas.convidar(cliente.id, pessoa, req.usuario);
         }
         await auditar(req, cliente.id, 'cliente_criado', { plano: plano.nome, status });
         res.status(201).json(cliente);
@@ -170,6 +175,95 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
         }
         await auditar(req, id, 'acesso_reenviado', { admins: admins.length });
         res.json({ ok: true, enviados: admins.length });
+    });
+
+    // ---------------- Usuários de um cliente ----------------
+    // Mesmo que o admin do cliente faz em /app, para o suporte e para quando
+    // não há e-mail: criar com senha, trocar papel/nome, (des)ativar, senha nova.
+    async function usuarioDoCliente(req) {
+        const c = await repos.clientes.obter(num(req.params.id));
+        if (!c) throw new ErroRegra('Cliente não encontrado.', 404);
+        const u = req.params.uid ? await repos.usuarios.doCliente(c.id, num(req.params.uid)) : null;
+        if (req.params.uid && !u) throw new ErroRegra('Usuário não encontrado.', 404);
+        return { c, u };
+    }
+
+    r.post('/api/admin/clientes/:id/usuarios', async (req, res) => {
+        const { c } = await usuarioDoCliente(req);
+        const b = req.body || {};
+        const comSenha = !!b.senha;
+        const u = comSenha ? await contas.criarComSenha(c.id, b) : await contas.convidar(c.id, b, req.usuario);
+        await auditar(req, c.id, comSenha ? 'usuario_criado' : 'usuario_convidado', { id: u.id, email: u.email, papel: u.papel });
+        res.status(201).json({ id: u.id, nome: u.nome, email: u.email, papel: u.papel });
+    });
+
+    r.patch('/api/admin/clientes/:id/usuarios/:uid', async (req, res) => {
+        const { c, u } = await usuarioDoCliente(req);
+        const b = req.body || {};
+        const campos = {};
+        if (b.nome !== undefined) { campos.nome = texto(b.nome); if (!campos.nome) throw new ErroRegra('Nome obrigatório.'); }
+        if (b.papel !== undefined) campos.papel = b.papel === 'admin' ? 'admin' : 'operador';
+        if (typeof b.ativo === 'boolean') campos.ativo = b.ativo;
+        if (b.senha !== undefined) await contas.definirSenha(u.id, b.senha);
+        const novo = await repos.usuarios.atualizar(u.id, campos);
+        await auditar(req, c.id, 'usuario_alterado', { id: u.id, ...campos, ...(b.senha !== undefined ? { senha: 'redefinida' } : {}) });
+        res.json({ id: novo.id, nome: novo.nome, papel: novo.papel, ativo: novo.ativo });
+    });
+
+    r.delete('/api/admin/clientes/:id/usuarios/:uid', async (req, res) => {
+        const { c, u } = await usuarioDoCliente(req);
+        await repos.usuarios.remover(c.id, u.id);
+        await auditar(req, c.id, 'usuario_removido', { id: u.id, email: u.email });
+        res.json({ ok: true });
+    });
+
+    // ---------------- Superadmins (equipe do painel) ----------------
+    r.get('/api/admin/superadmins', async (req, res) => {
+        const lista = await repos.usuarios.superadmins();
+        res.json(lista.map(u => ({ ...u, voce: u.id === req.usuario.id })));
+    });
+
+    r.post('/api/admin/superadmins', async (req, res) => {
+        const u = await contas.criarComSenha(null, req.body || {});
+        await auditar(req, null, 'superadmin_criado', { id: u.id, email: u.email });
+        res.status(201).json({ id: u.id, nome: u.nome, email: u.email });
+    });
+
+    async function outroSuperadminAtivo(id) {
+        const lista = await repos.usuarios.superadmins();
+        return lista.some(s => s.ativo && s.id !== id);
+    }
+
+    r.patch('/api/admin/superadmins/:sid', async (req, res) => {
+        const id = num(req.params.sid);
+        const u = await repos.usuarios.obter(id);
+        if (!u || u.papel !== 'superadmin') throw new ErroRegra('Superadmin não encontrado.', 404);
+        const b = req.body || {};
+        const campos = {};
+        if (b.nome !== undefined) { campos.nome = texto(b.nome); if (!campos.nome) throw new ErroRegra('Nome obrigatório.'); }
+        if (typeof b.ativo === 'boolean' && b.ativo !== u.ativo) {
+            if (id === req.usuario.id) throw new ErroRegra('Você não pode desativar a si mesmo.');
+            if (!b.ativo && !(await outroSuperadminAtivo(id))) throw new ErroRegra('Precisa sobrar ao menos um superadmin ativo.');
+            campos.ativo = b.ativo;
+        }
+        if (b.senha !== undefined) {
+            // A própria senha continua logada nesta sessão; as outras caem.
+            await contas.definirSenha(id, b.senha, { manterSessao: id === req.usuario.id ? req.sessionID : '' });
+        }
+        const novo = await repos.usuarios.atualizar(id, campos);
+        await auditar(req, null, 'superadmin_alterado', { id, ...campos, ...(b.senha !== undefined ? { senha: 'redefinida' } : {}) });
+        res.json({ id: novo.id, nome: novo.nome, ativo: novo.ativo });
+    });
+
+    r.delete('/api/admin/superadmins/:sid', async (req, res) => {
+        const id = num(req.params.sid);
+        if (id === req.usuario.id) throw new ErroRegra('Você não pode remover a si mesmo.');
+        const u = await repos.usuarios.obter(id);
+        if (!u || u.papel !== 'superadmin') throw new ErroRegra('Superadmin não encontrado.', 404);
+        if (u.ativo && !(await outroSuperadminAtivo(id))) throw new ErroRegra('Precisa sobrar ao menos um superadmin ativo.');
+        await repos.usuarios.removerSuperadmin(id);
+        await auditar(req, null, 'superadmin_removido', { id, email: u.email });
+        res.json({ ok: true });
     });
 
     // ---------------- Planos ----------------

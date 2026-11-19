@@ -37,7 +37,7 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
         ]);
         res.json({
             usuario: { id: req.usuario.id, nome: req.usuario.nome, email: req.usuario.email, papel: req.usuario.papel,
-                impersonando: req.usuario.impersonando, emailVerificado: req.usuario.emailVerificado },
+                impersonando: req.usuario.impersonando, emailVerificado: req.usuario.emailVerificado, emailAtivo: contas.emailAtivo },
             cliente: clientePublico(c),
             plano: plano ? planoPublico(plano) : null,
             limites: lim,
@@ -283,8 +283,11 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
     r.get('/api/app/usuarios', mw.exigirAdminCliente, async (req, res) => res.json(await repos.usuarios.listar(cid(req))));
 
     r.post('/api/app/usuarios', mw.exigirAdminCliente, mw.exigirOperante, async (req, res) => {
-        const u = await contas.convidar(cid(req), req.body || {}, req.usuario);
-        await auditar(req, 'usuario_convidado', { id: u.id, email: u.email, papel: u.papel });
+        const b = req.body || {};
+        // Com `senha`: cria já com acesso (sem e-mail). Sem: convite por e-mail.
+        const comSenha = b.senha !== undefined && b.senha !== '';
+        const u = comSenha ? await contas.criarComSenha(cid(req), b) : await contas.convidar(cid(req), b, req.usuario);
+        await auditar(req, comSenha ? 'usuario_criado' : 'usuario_convidado', { id: u.id, email: u.email, papel: u.papel });
         res.status(201).json({ id: u.id, nome: u.nome, email: u.email, papel: u.papel });
     });
 
@@ -309,8 +312,11 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
             }
             campos.ativo = b.ativo;
         }
+        if (b.nome !== undefined) { campos.nome = texto(b.nome); if (!campos.nome) throw new ErroRegra('Nome obrigatório.'); }
+        // Senha definida pelo administrador (a pessoa esqueceu, ou não há e-mail).
+        if (b.senha !== undefined) await contas.definirSenha(id, b.senha);
         const atualizado = await repos.usuarios.atualizar(id, campos);
-        await auditar(req, 'usuario_alterado', { id, ...campos });
+        await auditar(req, 'usuario_alterado', { id, ...campos, ...(b.senha !== undefined ? { senha: 'redefinida' } : {}) });
         res.json({ id: atualizado.id, papel: atualizado.papel, ativo: atualizado.ativo });
     });
 

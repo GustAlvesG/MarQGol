@@ -238,7 +238,7 @@
                 : 'Seu teste grátis terminou hoje.';
             f.push(`<div class="faixa info">${ic('info')}<span class="faixa-txt"><b>${esc(txt)}</b> ${c.tem_assinatura ? 'Sua assinatura já está registrada.' : 'Assine para continuar usando sem interrupção.'}</span>${c.tem_assinatura ? '' : botaoAssinar('Assinar')}</div>`);
         }
-        if (!u.emailVerificado && !u.impersonando) {
+        if (!u.emailVerificado && !u.impersonando && u.emailAtivo) {
             f.push(`<div class="faixa alerta">${ic('alert')}<span class="faixa-txt">Confirme seu e-mail <b>${esc(u.email)}</b> pelo link que enviamos.</span>
                 <button type="button" class="btn" data-faixa="reenviar">${ic('refresh')}Reenviar e-mail</button></div>`);
         }

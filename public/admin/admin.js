@@ -46,7 +46,8 @@
         cancelamento: 'Cancelamento', tela_pareada: 'Tela pareada', zerar_tudo: 'Placar zerado',
         conta_alterada: 'Conta alterada', placar_criado: 'Placar criado', placar_alterado: 'Placar alterado',
         placar_excluido: 'Placar excluído', usuario_convidado: 'Usuário convidado', usuario_alterado: 'Usuário alterado',
-        usuario_removido: 'Usuário removido'
+        usuario_removido: 'Usuário removido', usuario_criado: 'Usuário criado com senha',
+        superadmin_criado: 'Superadmin criado', superadmin_alterado: 'Superadmin alterado', superadmin_removido: 'Superadmin removido'
     };
     const NOME_CAMPO = {
         nome: 'nome', email: 'e-mail', telefone: 'telefone', documento: 'documento', plano_id: 'plano', status: 'status',
@@ -179,6 +180,59 @@
         });
     }
 
+    // ---------------------------------------------------------------- senhas
+    // Sem SMTP, quem cadastra define a senha e a passa para a pessoa (WhatsApp,
+    // pessoalmente). O campo é visível de propósito, com um gerador legível.
+    const gerarSenha = () => MARQ.gerarSenha();
+    const campoSenha = (nome = 'senha', rotulo = 'Senha') => `<label class="inteiro"><span class="rotulo">${esc(rotulo)}</span>
+        <div class="senha-linha"><input class="campo" name="${nome}" autocomplete="off" minlength="8" spellcheck="false" placeholder="Mínimo de 8 caracteres">
+        <button type="button" class="btn" data-gerar="${nome}">${ic('refresh')} Gerar</button></div>
+        <span class="ajuda">Anote e passe para a pessoa. Ela pode trocar depois em “Minha conta”.</span></label>`;
+    function ligarGerador(f) {
+        f.querySelectorAll('[data-gerar]').forEach(b => b.addEventListener('click', () => {
+            const campo = f.elements[b.dataset.gerar];
+            campo.value = gerarSenha();
+            campo.focus(); campo.select();
+        }));
+    }
+    // Bloco "acesso": senha agora (padrão sem SMTP) ou convite por e-mail.
+    function blocoAcesso(nomeSenha = 'senha') {
+        const porEmail = !!(EU && EU.emailAtivo);
+        return `<div class="inteiro"><span class="rotulo">Acesso</span><div class="segmentos" role="radiogroup">
+                <label class="segmento"><input type="radio" name="acesso" value="senha" ${porEmail ? '' : 'checked'}>Definir senha agora<small>Sem e-mail; você passa a senha</small></label>
+                <label class="segmento"><input type="radio" name="acesso" value="convite" ${porEmail ? 'checked' : ''}>Convite por e-mail<small>${porEmail ? 'A pessoa cria a senha' : 'SMTP não configurado'}</small></label>
+            </div></div>
+            <div class="inteiro" data-bloco-senha>${campoSenha(nomeSenha, 'Senha inicial')}</div>`;
+    }
+    function ligarAcesso(f) {
+        ligarGerador(f);
+        const atualizar = () => {
+            const comSenha = f.querySelector('input[name=acesso]:checked').value === 'senha';
+            f.querySelector('[data-bloco-senha]').hidden = !comSenha;
+        };
+        f.querySelectorAll('input[name=acesso]').forEach(r => r.addEventListener('change', atualizar));
+        atualizar();
+        const senha = f.querySelector('[data-bloco-senha] input');
+        if (!senha.value) senha.value = gerarSenha();
+    }
+    const usaSenha = (f) => f.querySelector('input[name=acesso]:checked').value === 'senha';
+    function lerSenha(f, nome = 'senha') {
+        const v = f.elements[nome].value.trim();
+        if (v.length < 8) throw new Error('A senha precisa ter pelo menos 8 caracteres.');
+        return v;
+    }
+    // Folha "definir senha" para um usuário existente.
+    async function folhaSenha(nome, url, extra = {}) {
+        const r = await abrirFolha({
+            titulo: `Nova senha — ${nome}`, sim: 'Definir senha',
+            corpo: `<p>As sessões abertas dessa pessoa são encerradas; ela entra de novo com a senha nova.</p><div class="grade-form">${campoSenha('senha', 'Nova senha')}</div>`,
+            aoAbrir: (f) => { ligarGerador(f); f.senha.value = gerarSenha(); },
+            aoEnviar: async (f) => { const senha = lerSenha(f); await api('PATCH', url, { ...extra, senha }); return { senha }; }
+        });
+        if (r && r.senha) await avisar('Senha definida', `Nova senha de ${nome}:\n${r.senha}\n\nPasse para a pessoa por um canal seguro.`);
+        return r;
+    }
+
     // Executa uma ação de botão com estado "ocupado" e toast de erro.
     async function comBotao(btn, fn) {
         if (btn) btn.disabled = true;
@@ -192,6 +246,7 @@
     const filtroClientes = { busca: '', status: '' };
     let filtroAuditoria = '';
     let cachePlanos = null;     // { planos, recursos }
+    let EU = null;              // /api/auth/eu (emailAtivo decide convite x senha)
 
     async function carregarPlanos(forcar = false) {
         if (!cachePlanos || forcar) cachePlanos = await api('GET', '/api/admin/planos');
@@ -224,6 +279,7 @@
                 await telaClientes(vivo);
             } else if (tela === 'cliente' && Number(arg)) await telaCliente(Number(arg), vivo);
             else if (tela === 'planos') await telaPlanos(vivo);
+            else if (tela === 'equipe') await telaEquipe(vivo);
             else if (tela === 'auditoria') {
                 if (q.has('cliente')) filtroAuditoria = q.get('cliente');
                 await telaAuditoria(vivo);
@@ -350,7 +406,7 @@
         try { dados = await carregarPlanos(true); } catch (e) { return avisar('Não foi possível carregar os planos', e.message); }
         const planos = dados.planos.filter(p => p.ativo);
         if (!planos.length) return avisar('Nenhum plano ativo', 'Crie ou ative um plano na aba Planos antes de cadastrar um cliente.');
-        const corpo = `<p>Cadastro de uma venda feita por você. O administrador recebe um convite por e-mail para criar a senha. O primeiro placar (“Quadra 1”) já é criado.</p>
+        const corpo = `<p>Cadastro de uma venda feita por você. O primeiro placar (“Quadra 1”) já é criado. O administrador entra com o e-mail e a senha definidos aqui (ou recebe um convite por e-mail, se o SMTP estiver configurado).</p>
             <div class="grade-form">
                 <label class="inteiro"><span class="rotulo">Nome do cliente (clube, escola…)</span><input class="campo" name="nome" required maxlength="120"></label>
                 <label><span class="rotulo">Nome do administrador</span><input class="campo" name="nomeAdmin" maxlength="120" placeholder="Opcional"></label>
@@ -363,11 +419,13 @@
                 <label><span class="rotulo">Status inicial</span><select class="campo" name="status">
                     <option value="teste">Em teste</option><option value="ativo">Ativo</option></select></label>
                 <label data-teste><span class="rotulo">Fim do teste</span><input class="campo" name="teste_ate" type="date"></label>
+                ${blocoAcesso('senhaAdmin')}
                 <label class="inteiro"><span class="rotulo">Observações (só você vê)</span><textarea class="campo" name="observacoes" maxlength="2000"></textarea></label>
             </div>`;
         const criado = await abrirFolha({
-            titulo: 'Novo cliente', corpo, sim: 'Cadastrar e convidar', larga: true,
+            titulo: 'Novo cliente', corpo, sim: 'Cadastrar', larga: true,
             aoAbrir: (f) => {
+                ligarAcesso(f);
                 const atualizarData = () => {
                     const dias = Number(f.plano_id.selectedOptions[0].dataset.dias) || 14;
                     f.teste_ate.value = paraInputData(somarDias(new Date(), dias));
@@ -386,11 +444,15 @@
                     status: f.status.value, observacoes: f.observacoes.value
                 };
                 if (corpoReq.status === 'teste') corpoReq.teste_ate = deInputData(f.teste_ate.value);
-                return api('POST', '/api/admin/clientes', corpoReq);
+                if (usaSenha(f)) corpoReq.senhaAdmin = lerSenha(f, 'senhaAdmin');
+                const c = await api('POST', '/api/admin/clientes', corpoReq);
+                return { ...c, senhaAdmin: corpoReq.senhaAdmin };
             }
         });
         if (criado && criado.id) {
-            toast(`Cliente criado. Convite enviado para ${criado.email}.`);
+            if (criado.senhaAdmin) {
+                await avisar('Cliente criado', `Passe o acesso para o administrador:\n\nEndereço: ${location.origin}/entrar\nE-mail: ${criado.email}\nSenha: ${criado.senhaAdmin}`);
+            } else toast(`Cliente criado. Convite enviado para ${criado.email}.`);
             location.hash = '#cliente/' + criado.id;
         }
     }
@@ -423,7 +485,7 @@
                     </div>
                 </div>
                 <div class="acoes">
-                    <button type="button" class="btn" id="btn-reenviar">${ic('refresh')} Reenviar acesso</button>
+                    ${EU && EU.emailAtivo ? `<button type="button" class="btn" id="btn-reenviar">${ic('refresh')} Reenviar acesso</button>` : ''}
                     <button type="button" class="btn claro" id="btn-entrar">${ic('user')} Entrar como cliente</button>
                 </div>
             </div>
@@ -480,16 +542,15 @@
             <section class="cartao" id="cartao-limites"></section>
             <section class="cartao" id="cartao-arte"></section>
 
-            <div class="grade-detalhe">
                 <section class="cartao">
-                    <div class="cartao-cab"><h2>${ic('users')} Usuários</h2><span class="tag">${d.usuarios.length}</span></div>
-                    <div class="tabela-caixa">${tabelaUsuarios(d.usuarios)}</div>
+                    <div class="cartao-cab"><h2>${ic('users')} Usuários <span class="tag">${d.usuarios.length} de ${Number(d.limites.max_usuarios)}</span></h2>
+                        <button type="button" class="btn" id="btn-novo-usuario">${ic('plus')} Novo usuário</button></div>
+                    <div class="tabela-caixa" id="tab-usuarios">${tabelaUsuarios(d.usuarios)}</div>
                 </section>
                 <section class="cartao">
                     <div class="cartao-cab"><h2>${ic('tv')} Placares</h2><span class="tag">${d.placares.length}</span></div>
                     <div class="tabela-caixa">${tabelaPlacares(d.placares)}</div>
                 </section>
-            </div>
 
             <section class="cartao">
                 <div class="cartao-cab"><h2>${ic('card')} Faturas</h2></div>
@@ -528,7 +589,7 @@
                 location.href = (r && r.destino) || '/app/';
             });
         });
-        conteudo.querySelector('#btn-reenviar').addEventListener('click', async (ev) => {
+        conteudo.querySelector('#btn-reenviar')?.addEventListener('click', async (ev) => {
             const ok = await confirmar({
                 titulo: 'Reenviar acesso',
                 texto: 'Cada administrador do cliente recebe um e-mail: quem ainda não criou a senha recebe o convite de novo; quem já tem senha recebe um link para redefini-la.',
@@ -540,6 +601,55 @@
                 if (!r.enviados) avisar('Nenhum e-mail enviado', 'Este cliente não tem administrador ativo. Convide um pela área do cliente (Entrar como cliente).');
                 else toast(`Enviado para ${plural(r.enviados, 'administrador', 'administradores')}.`);
             });
+        });
+
+        // ---- Usuários ----
+        const urlUsuario = (uid) => `/api/admin/clientes/${c.id}/usuarios/${uid}`;
+        conteudo.querySelector('#btn-novo-usuario').addEventListener('click', async () => {
+            const criado = await abrirFolha({
+                titulo: `Novo usuário — ${c.nome}`, sim: 'Criar usuário',
+                corpo: `<div class="grade-form">
+                    <label><span class="rotulo">Nome</span><input class="campo" name="nome" maxlength="120" required></label>
+                    <label><span class="rotulo">E-mail (login)</span><input class="campo" name="email" type="email" required autocomplete="off"></label>
+                    <label class="inteiro"><span class="rotulo">Papel</span><select class="campo" name="papel">
+                        <option value="operador">Operador — agenda, times e placares</option>
+                        <option value="admin">Administrador — tudo, inclusive assinatura e usuários</option></select></label>
+                    ${blocoAcesso('senha')}</div>`,
+                aoAbrir: ligarAcesso,
+                aoEnviar: async (f) => {
+                    if (!f.nome.value.trim() || !f.email.value.trim()) throw new Error('Informe o nome e o e-mail.');
+                    const corpo = { nome: f.nome.value.trim(), email: f.email.value.trim(), papel: f.papel.value };
+                    if (usaSenha(f)) corpo.senha = lerSenha(f);
+                    await api('POST', `/api/admin/clientes/${c.id}/usuarios`, corpo);
+                    return corpo;
+                }
+            });
+            if (!criado) return;
+            if (criado.senha) await avisar('Usuário criado', `Passe o acesso para ${criado.nome}:\n\nEndereço: ${location.origin}/entrar\nE-mail: ${criado.email}\nSenha: ${criado.senha}`);
+            else toast(`Convite enviado para ${criado.email}.`);
+            recarregar();
+        });
+        conteudo.querySelector('#tab-usuarios').addEventListener('click', async (ev) => {
+            const b = ev.target.closest('[data-u]');
+            if (!b) return;
+            const tr = b.closest('[data-uid]');
+            const uid = tr.dataset.uid, nome = tr.dataset.nome;
+            if (b.dataset.u === 'senha') { if (await folhaSenha(nome, urlUsuario(uid))) recarregar(); return; }
+            if (b.dataset.u === 'papel') {
+                const papel = tr.dataset.papel === 'admin' ? 'operador' : 'admin';
+                await comBotao(b, async () => { await api('PATCH', urlUsuario(uid), { papel }); toast(`${nome}: ${papel === 'admin' ? 'administrador' : 'operador'}`); recarregar(); });
+                return;
+            }
+            if (b.dataset.u === 'ativo') {
+                const ativo = tr.dataset.ativo !== 'true';
+                if (!ativo && !(await confirmar({ titulo: `Desativar ${nome}?`, texto: 'A pessoa não consegue mais entrar até ser reativada.', sim: 'Desativar', perigo: true }))) return;
+                await comBotao(b, async () => { await api('PATCH', urlUsuario(uid), { ativo }); toast(ativo ? 'Usuário ativado' : 'Usuário desativado'); recarregar(); });
+                return;
+            }
+            if (b.dataset.u === 'remover') {
+                if (!(await confirmar({ titulo: `Remover ${nome}?`, texto: 'A pessoa perde o acesso e sai da lista. Não tem volta.', sim: 'Remover', perigo: true }))) return;
+                await comBotao(b, async () => { await api('DELETE', urlUsuario(uid)); toast('Usuário removido'); recarregar(); });
+            }
         });
 
         // ---- Dados ----
@@ -639,13 +749,19 @@
 
     function tabelaUsuarios(lista) {
         if (!lista.length) return '<div class="vazio">Nenhum usuário.</div>';
-        return `<table class="tabela"><thead><tr><th>Usuário</th><th>Papel</th><th>Último login</th></tr></thead><tbody>
-            ${lista.map(u => `<tr>
+        return `<table class="tabela"><thead><tr><th>Usuário</th><th>Papel</th><th>Último login</th><th></th></tr></thead><tbody>
+            ${lista.map(u => `<tr data-uid="${Number(u.id)}" data-nome="${esc(u.nome)}" data-papel="${esc(u.papel)}" data-ativo="${u.ativo}">
                 <td class="princ"><b>${esc(u.nome)}</b><span>${esc(u.email)}</span></td>
                 <td><div class="tags"><span class="tag ${u.papel === 'admin' ? 'amarelo' : ''}">${u.papel === 'admin' ? 'Admin' : 'Operador'}</span>
-                    ${u.convite_pendente ? '<span class="tag alerta">Convite pendente</span>' : ''}
+                    ${u.convite_pendente ? '<span class="tag alerta">Sem senha</span>' : ''}
                     ${u.ativo ? '' : '<span class="tag perigo">Inativo</span>'}</div></td>
                 <td class="nw" title="${esc(MARQ.dataHora(u.ultimo_login_em))}">${relativo(u.ultimo_login_em)}</td>
+                <td><div class="acoes-linha">
+                    <button type="button" class="btn peq" data-u="senha" title="Definir senha">${ic('lock')} Senha</button>
+                    <button type="button" class="btn peq" data-u="papel" title="Trocar papel">${u.papel === 'admin' ? 'Tornar operador' : 'Tornar admin'}</button>
+                    <button type="button" class="btn peq icone" data-u="ativo" title="${u.ativo ? 'Desativar' : 'Ativar'}" aria-label="${u.ativo ? 'Desativar' : 'Ativar'} ${esc(u.nome)}">${ic('power')}</button>
+                    <button type="button" class="btn peq icone perigo" data-u="remover" title="Remover" aria-label="Remover ${esc(u.nome)}">${ic('trash')}</button>
+                </div></td>
             </tr>`).join('')}</tbody></table>`;
     }
 
@@ -940,6 +1056,66 @@
         if (salvo) { toast(plano ? 'Plano salvo' : 'Plano criado'); rotear(); }
     }
 
+    // ================================================================ EQUIPE (superadmins)
+    async function telaEquipe(vivo) {
+        document.title = 'Equipe — MarQGol';
+        conteudo.innerHTML = `<div class="secao-cab"><div><h1>Equipe</h1></div></div>${carregando()}`;
+        const lista = await api('GET', '/api/admin/superadmins');
+        if (!vivo()) return;
+        conteudo.innerHTML = `
+            <div class="secao-cab"><div><h1>Equipe</h1><p>Quem acessa este painel (superadmins). Têm acesso total a todos os clientes.</p></div>
+                <button type="button" class="btn claro" id="btn-novo-sa">${ic('plus')} Novo superadmin</button></div>
+            <div class="tabela-caixa"><table class="tabela"><thead><tr><th>Pessoa</th><th>Situação</th><th>Último login</th><th></th></tr></thead><tbody>
+                ${lista.map(u => `<tr data-sid="${Number(u.id)}" data-nome="${esc(u.nome)}" data-ativo="${u.ativo}">
+                    <td class="princ"><b>${esc(u.nome)}${u.voce ? ' <span class="tag info">Você</span>' : ''}</b><span>${esc(u.email)}</span></td>
+                    <td>${u.ativo ? '<span class="tag ok">Ativo</span>' : '<span class="tag perigo">Inativo</span>'}</td>
+                    <td class="nw">${relativo(u.ultimo_login_em)}</td>
+                    <td><div class="acoes-linha">
+                        <button type="button" class="btn peq" data-a="senha">${ic('lock')} ${u.voce ? 'Trocar minha senha' : 'Senha'}</button>
+                        ${u.voce ? '' : `<button type="button" class="btn peq icone" data-a="ativo" title="${u.ativo ? 'Desativar' : 'Ativar'}" aria-label="${u.ativo ? 'Desativar' : 'Ativar'} ${esc(u.nome)}">${ic('power')}</button>
+                        <button type="button" class="btn peq icone perigo" data-a="remover" title="Remover" aria-label="Remover ${esc(u.nome)}">${ic('trash')}</button>`}
+                    </div></td>
+                </tr>`).join('')}</tbody></table></div>`;
+
+        conteudo.querySelector('#btn-novo-sa').addEventListener('click', async () => {
+            const criado = await abrirFolha({
+                titulo: 'Novo superadmin', sim: 'Criar',
+                corpo: `<p>Acesso total ao painel: clientes, planos, cobrança e “entrar como”. Dê só a quem é da sua equipe.</p>
+                    <div class="grade-form">
+                    <label><span class="rotulo">Nome</span><input class="campo" name="nome" maxlength="120" required></label>
+                    <label><span class="rotulo">E-mail (login)</span><input class="campo" name="email" type="email" required autocomplete="off"></label>
+                    ${campoSenha('senha', 'Senha inicial')}</div>`,
+                aoAbrir: (f) => { ligarGerador(f); f.senha.value = gerarSenha(); },
+                aoEnviar: async (f) => {
+                    if (!f.nome.value.trim() || !f.email.value.trim()) throw new Error('Informe o nome e o e-mail.');
+                    const corpo = { nome: f.nome.value.trim(), email: f.email.value.trim(), senha: lerSenha(f) };
+                    await api('POST', '/api/admin/superadmins', corpo);
+                    return corpo;
+                }
+            });
+            if (!criado) return;
+            await avisar('Superadmin criado', `Passe o acesso para ${criado.nome}:\n\nEndereço: ${location.origin}/entrar\nE-mail: ${criado.email}\nSenha: ${criado.senha}`);
+            rotear();
+        });
+        conteudo.querySelector('tbody').addEventListener('click', async (ev) => {
+            const b = ev.target.closest('[data-a]');
+            if (!b) return;
+            const tr = b.closest('[data-sid]');
+            const id = tr.dataset.sid, nome = tr.dataset.nome, url = '/api/admin/superadmins/' + id;
+            if (b.dataset.a === 'senha') { if (await folhaSenha(nome, url)) rotear(); return; }
+            if (b.dataset.a === 'ativo') {
+                const ativo = tr.dataset.ativo !== 'true';
+                if (!ativo && !(await confirmar({ titulo: `Desativar ${nome}?`, texto: 'A pessoa perde o acesso ao painel até ser reativada.', sim: 'Desativar', perigo: true }))) return;
+                await comBotao(b, async () => { await api('PATCH', url, { ativo }); toast(ativo ? 'Ativado' : 'Desativado'); rotear(); });
+                return;
+            }
+            if (b.dataset.a === 'remover') {
+                if (!(await confirmar({ titulo: `Remover ${nome}?`, texto: 'A pessoa perde o acesso ao painel. Os registros de auditoria continuam.', sim: 'Remover', perigo: true }))) return;
+                await comBotao(b, async () => { await api('DELETE', url); toast('Removido'); rotear(); });
+            }
+        });
+    }
+
     // ================================================================ AUDITORIA
     async function telaAuditoria(vivo) {
         document.title = 'Auditoria — MarQGol';
@@ -971,7 +1147,7 @@
 
     // ================================================================ INÍCIO
     async function iniciar() {
-        const rotulos = { visao: ['chart', 'Visão geral'], clientes: ['users', 'Clientes'], planos: ['card', 'Planos'], auditoria: ['shield', 'Auditoria'] };
+        const rotulos = { visao: ['chart', 'Visão geral'], clientes: ['users', 'Clientes'], planos: ['card', 'Planos'], equipe: ['lock', 'Equipe'], auditoria: ['shield', 'Auditoria'] };
         document.querySelectorAll('.adm-topo .aba').forEach(a => { const [i, t] = rotulos[a.dataset.aba]; a.innerHTML = `${ic(i)} ${t}`; });
         document.getElementById('btn-sair').innerHTML = ic('logout');
         document.getElementById('btn-sair').addEventListener('click', async () => {
@@ -987,6 +1163,7 @@
             return;
         }
         if (!eu.superadmin) { location.href = '/app/'; return; }
+        EU = eu;
         const quem = document.getElementById('quem');
         quem.textContent = eu.email;
         quem.title = `${eu.nome || ''} <${eu.email}>`;

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0b1428">
-<meta name="description" content="MarQGol: placar eletrônico em tempo real para futsal, basquete e vôlei. Telão, controle no tablet, agenda de jogos e súmula. Teste grátis por 14 dias.">
+<meta name="theme-color" content="#0d1017">
+<meta name="description" content="MarQGol: placar eletrônico em tempo real para futsal, basquete e vôlei. Telão, mesa de controle no tablet, mídia e agenda de jogos sincronizados. Teste grátis por 14 dias.">
 <title>MarQGol — placar eletrônico para futsal, basquete e vôlei</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
@@ -13,9 +13,10 @@
 </head>
 <body class="site">
 <header class="site-topo">
-  <a class="marca" href="/">MarQ<span>Gol</span></a>
+  <a class="marca" href="/" aria-label="MarQGol"><svg class="marca-icone" viewBox="0 0 30 22" aria-hidden="true"><rect x="1" y="1" width="28" height="20" rx="4"/><path d="M11 8l8 6M19 8l-8 6"/></svg>Mar<span>Q</span>Gol</a>
   <nav>
     <a class="link" href="#recursos">Recursos</a>
+    <a class="link" href="#sua-marca">Sua marca</a>
     <a class="link" href="#planos">Planos</a>
     <a class="btn leve" href="/entrar" id="link-entrar">Entrar</a>
     <a class="btn marca-btn" href="/cadastro">Testar grátis</a>
@@ -24,67 +25,107 @@
 
 <main>
   <section class="heroi">
-    <div>
-      <h1>O placar do seu ginásio, <em>ao vivo</em> no telão.</h1>
-      <p class="sub">Futsal, basquete e vôlei com placar, cronômetro, faltas e sets controlados pelo tablet — e animação de gol com o jogador, patrocinadores e comerciais na TV.</p>
-      <div class="acoes">
-        <a class="btn grande marca-btn" href="/cadastro">Começar teste de 14 dias</a>
-        <a class="btn grande" href="#como-funciona">Como funciona</a>
+    <p class="olho">Placar eletrônico para futsal, basquete e vôlei</p>
+    <h1>O jogo inteiro, <em>ao vivo</em>, em todas as telas.</h1>
+    <p class="sub">Telão, mesa de controle e mídia sincronizados em tempo real, com espaço de destaque para os seus patrocinadores.</p>
+    <div class="esportes"><span style="--cor:var(--amarelo)">FUTSAL</span><span style="--cor:var(--marca)">BASQUETE</span><span style="--cor:var(--azul-marca)">VÔLEI</span></div>
+    <div class="acoes">
+      <a class="btn grande marca-btn" href="/cadastro">Começar teste de 14 dias</a>
+      <a class="btn grande" href="#como-funciona">Como funciona</a>
+    </div>
+    <small class="nota">Sem cartão para testar. Você só paga se continuar.</small>
+  </section>
+
+  <div class="destaques">
+    <div><b>TEMPO REAL</b><span>Todas as telas sincronizadas</span></div>
+    <div><b>AGENDA E SÚMULA</b><span>Jogos agendados e lances registrados</span></div>
+    <div><b>SUA MARCA</b><span>Telão com a identidade do clube</span></div>
+  </div>
+
+  <div class="heroi-tela">
+    <figure class="tela">
+      <span class="selo">AO VIVO</span>
+      <div class="quadro"><img src="/img/telao-padrao.webp" width="1568" height="688" alt="Telão do MarQGol no tema padrão: basquete, Leões do Sul 48 x 45 Tigres FC, 10:00 no relógio, 3º quarto."></div>
+      <figcaption>Telão no tema padrão — tela real do sistema, com times fictícios.</figcaption>
+    </figure>
+  </div>
+
+  <div class="claro-faixa" id="recursos">
+    <section class="secao">
+      <p class="olho">Telão</p>
+      <h2>O espetáculo para quem está na <em>arquibancada</em></h2>
+      <p class="sub">Placar, cronômetro, períodos, faltas e sets sempre visíveis, com animações a cada lance e as marcas dos seus patrocinadores em destaque.</p>
+      <div class="itens" id="lista-recursos"></div>
+
+      <div class="esporte-cards">
+        <div class="esporte-card" style="--cor:var(--amarelo)"><div><h3>FUTSAL</h3><ul><li>Botão +1 GOL e faixa GOL!</li><li>Cronômetro regressivo</li><li>Faltas e período por tempo</li><li>Aviso de tiro livre na 5ª falta</li></ul></div></div>
+        <div class="esporte-card" style="--cor:var(--marca)"><div><h3>BASQUETE</h3><ul><li>+1, +2 e +3, faixa CESTA!</li><li>Relógio com centésimos</li><li>Quartos e faltas controlados</li><li>Aviso de bônus na 4ª falta</li></ul></div></div>
+        <div class="esporte-card" style="--cor:var(--azul-marca)"><div><h3>VÔLEI</h3><ul><li>Ponto, saque e selo SET POINT</li><li>Cronômetro crescente</li><li>Sets de 25 e tie-break de 15</li><li>Melhor de 5, grade set a set</li></ul></div></div>
       </div>
-      <small class="nota">Sem cartão para testar. Você só paga se continuar.</small>
-    </div>
-    <div class="vitrine" aria-hidden="true">
-      <div class="centro">12:47</div>
-      <div class="lado a">3</div>
-      <div class="lado b">2</div>
-      <div class="nomes"><span>Leões</span><span>Tigres</span></div>
-      <div class="gol">GOL!</div>
-      <div class="faixa"><span>PATROCINADOR</span><span>SUA MARCA</span><span>APOIO</span></div>
+    </section>
+  </div>
+
+  <section class="secao" id="sua-marca">
+    <p class="olho">Personalização</p>
+    <h2>O telão com <em>a cara do seu clube</em></h2>
+    <p class="sub">O tema padrão já vem pronto para usar. O telão também recebe a identidade visual do clube: fundo, cores, caixas do placar e marcas dos parceiros.</p>
+    <div class="comparar">
+      <figure class="tela">
+        <div class="quadro" style="position:relative"><img src="/img/telao-padrao.webp" width="1568" height="688" loading="lazy" alt="Telão no tema padrão, neutro."><span class="selo creme embaixo">TEMA PADRÃO · NEUTRO</span></div>
+        <figcaption>Pronto para usar, sem configurar nada.</figcaption>
+      </figure>
+      <figure class="tela">
+        <div class="quadro" style="position:relative"><img src="/img/telao-clube.webp" width="1568" height="688" loading="lazy" alt="Telão personalizado do Clube dos Funcionários: fundo vermelho com a marca do clube, tempo, período, faltas e placar 48 x 45."><span class="selo embaixo">PERSONALIZADO · EXEMPLO REAL</span></div>
+        <figcaption>Clube dos Funcionários — fundo, cores e marcas do clube aplicados ao telão (times fictícios).</figcaption>
+      </figure>
     </div>
   </section>
 
-  <section class="secao" id="recursos">
-    <h2>Tudo o que o jogo precisa</h2>
-    <p class="sub">Feito com quem opera placar de verdade, em quadra, no tablet.</p>
-    <div class="recursos" id="lista-recursos"></div>
-  </section>
-
-  <section class="secao" id="como-funciona">
-    <h2>Como funciona</h2>
-    <p class="sub">Em poucos minutos o telão está no ar.</p>
-    <div class="passos-site">
-      <div class="passo-site"><b>Crie a conta</b><span>Cadastro rápido, 14 dias grátis com tudo do plano escolhido.</span></div>
-      <div class="passo-site"><b>Cadastre times</b><span>Times, jogadores com foto e a agenda de jogos — ou importe de planilha.</span></div>
-      <div class="passo-site"><b>Ligue a TV</b><span>Abra <b>/telao</b> na TV e digite o código que aparece. Pronto: pareada.</span></div>
-      <div class="passo-site"><b>Opere no tablet</b><span>Carregue o jogo, dê PLAY e marque. O telão acompanha na hora.</span></div>
-    </div>
-  </section>
+  <div class="claro-faixa" id="como-funciona">
+    <section class="secao">
+      <p class="olho">Como funciona</p>
+      <h2>Uma hospedagem para <em>todos os placares</em></h2>
+      <p class="sub">Sem servidor na quadra: em cada uma, basta uma TV ou computador ligado ao telão e um tablet na mesa.</p>
+      <div class="passos-site">
+        <div class="passo-site"><b>Crie a conta</b><span>Cadastro rápido, 14 dias grátis com tudo do plano escolhido.</span></div>
+        <div class="passo-site"><b>Cadastre times</b><span>Times, jogadores com foto e a agenda de jogos.</span></div>
+        <div class="passo-site"><b>Ligue a TV</b><span>Abra <b>/telao</b> no navegador da TV e digite o código que aparece. Pronto: pareada.</span></div>
+        <div class="passo-site"><b>Opere no tablet</b><span>Carregue o jogo, dê PLAY e marque. O telão acompanha na hora.</span></div>
+      </div>
+    </section>
+  </div>
 
   <section class="secao" id="planos">
-    <h2>Planos</h2>
+    <p class="olho">Planos</p>
+    <h2>Escolha quantas <em>quadras</em></h2>
     <p class="sub">Todos começam com 14 dias de teste. Pague por Pix, boleto ou cartão.</p>
     <div class="planos" id="lista-planos"><p class="vazio">Carregando planos…</p></div>
+  </section>
+
+  <section class="secao" style="padding-top:8px">
+    <a class="chamada" href="/cadastro"><div><b>Quer ver o MarQGol em ação?</b><span>Crie a conta e coloque o telão no ar hoje mesmo.</span></div><span id="seta"></span></a>
   </section>
 </main>
 
 <footer class="rodape-site">
   <span>MarQGol · placar eletrônico em tempo real</span>
-  <span><a href="/entrar">Entrar</a> · <a href="/cadastro">Criar conta</a> · <a href="/telao">Parear uma TV</a></span>
+  <span><a href="/entrar">Entrar</a> · <a href="/cadastro">Criar conta</a> · <a href="/telao">Parear uma TV</a> · <a href="/termos">Termos</a></span>
 </footer>
 
 <script src="/comum/ui.js"></script>
 <script src="/comum/marq.js"></script>
 <script>
 const RECURSOS = [
-    ['board', 'Três esportes, uma tela', 'Futsal, basquete e vôlei com as regras de cada um: faltas, quartos, sets, set point e parciais.'],
-    ['tv', 'Telão sem fio', 'Qualquer TV com navegador vira telão. Pareamento por código, sem instalar nada.'],
-    ['play', 'Gol com o jogador', 'Animação com foto e número de quem marcou, e vídeo de apresentação do atleta.'],
-    ['calendar', 'Agenda de jogos', 'Agende pelo painel ou direto do controle. Cada jogo guarda a súmula lance a lance.'],
-    ['film', 'Comerciais e slides', 'Vídeos de patrocinadores, slides e carrossel de logos durante o jogo.'],
-    ['users', 'Equipe com papéis', 'Administradores e operadores, cada um com seu acesso. Várias quadras ao mesmo tempo.']
+    ['Faixa de ponto animada', 'GOL!, CESTA! ou PONTO! com foto, número e nome do atleta e o brasão do time.'],
+    ['Vídeo do atleta', 'Atleta com vídeo de apresentação cadastrado aparece em vídeo antes da faixa.'],
+    ['Patrocinadores em evidência', 'Carrossel fixo no rodapé e logos em tamanho maior em cada ponto marcado.'],
+    ['Faltas, sets e fim de jogo', 'Faixa de FALTA!, resumo de cada set fechado e anúncio de FIM DE JOGO.'],
+    ['Comerciais e slides', 'Vídeos e apresentações em tela cheia, que voltam ao placar ao terminar.'],
+    ['Agenda e equipe', 'Jogos agendados pelo painel ou direto da mesa; administradores e operadores com acessos próprios.']
 ];
-document.getElementById('lista-recursos').innerHTML = RECURSOS.map(([i, t, d]) =>
-    `<div class="recurso">${ic(i)}<h3>${esc(t)}</h3><p>${esc(d)}</p></div>`).join('');
+document.getElementById('lista-recursos').innerHTML = RECURSOS.map(([t, d], i) =>
+    `<div class="item-num"><h3><small>0${i + 1}</small>${esc(t)}</h3><p>${esc(d)}</p></div>`).join('');
+document.getElementById('seta').outerHTML = ic('right');
 
 function itensDoPlano(p) {
     const r = p.recursos || {};
@@ -96,7 +137,7 @@ function itensDoPlano(p) {
         [true, `${gb(p.max_armazenamento_mb)} para fotos, vídeos e slides`],
         [r.midia !== false, 'Comerciais, slides e patrocinadores'],
         [!!r.video_jogador, 'Vídeo de apresentação do jogador'],
-        [!!r.arte_propria, 'Arte própria no telão']
+        [!!r.arte_propria, 'Telão com a arte do seu clube']
     ];
     return itens.map(([ok, t]) => `<li class="${ok ? '' : 'nao'}">${ic(ok ? 'check' : 'x')}<span>${esc(t)}</span></li>`).join('');
 }

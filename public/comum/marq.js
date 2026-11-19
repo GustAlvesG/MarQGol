@@ -7,6 +7,7 @@
 //                                    Error com a mensagem do servidor (.status, .codigo)
 //   MARQ.enviarArquivo(url, arquivo, aoProgresso) → POST do arquivo cru
 //   MARQ.enviarArquivoPut(url, arquivo)           → PUT do arquivo cru (arte)
+//   MARQ.gerarSenha()              → senha legível e aleatória (cadastro sem e-mail)
 //   MARQ.dinheiro(centavos), MARQ.data(iso), MARQ.dataHora(iso)
 (function () {
     const m = location.pathname.match(/^\/p\/(\d+)(\/|$)/);
@@ -95,6 +96,17 @@
         return socket;
     }
 
+    // Senha legível para passar por WhatsApp/pessoalmente (ex.: "Kfmq-4827t").
+    function gerarSenha() {
+        const letras = 'abcdefghjkmnpqrstuvwxyz', nums = '23456789';
+        const r = (s) => s[crypto.getRandomValues(new Uint32Array(1))[0] % s.length];
+        let s = '';
+        for (let i = 0; i < 4; i++) s += r(letras);
+        s += '-';
+        for (let i = 0; i < 4; i++) s += r(nums);
+        return s.charAt(0).toUpperCase() + s.slice(1) + r(letras);
+    }
+
     const fmtDinheiro = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     window.MARQ = {
         placarId,
@@ -102,6 +114,7 @@
         enviarArquivo: (url, arquivo, aoProgresso) => enviarCru('POST', url, arquivo, aoProgresso),
         enviarArquivoPut: (url, arquivo, aoProgresso) => enviarCru('PUT', url, arquivo, aoProgresso),
         conectar,
+        gerarSenha,
         dinheiro: (centavos) => fmtDinheiro.format((Number(centavos) || 0) / 100),
         data: (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—',
         dataHora: (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'

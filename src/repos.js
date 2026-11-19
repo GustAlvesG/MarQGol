@@ -136,6 +136,10 @@ function criarRepos(db) {
             return db.um(`UPDATE usuarios SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, valores);
         },
         remover: (clienteId, id) => db.query('DELETE FROM usuarios WHERE cliente_id = $1 AND id = $2', [clienteId, id]),
+        superadmins: () => db.varios(
+            `SELECT id, nome, email, ativo, ultimo_login_em, criado_em
+             FROM usuarios WHERE papel = 'superadmin' ORDER BY nome`),
+        removerSuperadmin: (id) => db.query(`DELETE FROM usuarios WHERE id = $1 AND papel = 'superadmin'`, [id]),
         adminsDoCliente: (clienteId) => db.varios(
             `SELECT * FROM usuarios WHERE cliente_id = $1 AND papel = 'admin' AND ativo`, [clienteId])
     };
