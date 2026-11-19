@@ -44,7 +44,7 @@
                 let dado = null;
                 try { dado = JSON.parse(xhr.responseText); } catch { /* corpo vazio */ }
                 if (xhr.status >= 200 && xhr.status < 300) resolve(dado);
-                else reject(Object.assign(new Error((dado && dado.erro) || `Erro ${xhr.status}`), { status: xhr.status }));
+                else reject(Object.assign(new Error((dado && dado.erro) || `Erro ${xhr.status}`), { status: xhr.status, codigo: dado && dado.codigo }));
             };
             xhr.onerror = () => reject(new Error('Falha de rede no envio.'));
             xhr.send(arquivo);

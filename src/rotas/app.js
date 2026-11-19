@@ -323,7 +323,7 @@ function rotasApp({ repos, agenda, contas, cobranca, armazenamento, gerenciador,
     });
 
     // ---------------- Assinatura ----------------
-    r.get('/api/app/assinatura', async (req, res) => {
+    r.get('/api/app/assinatura', mw.exigirAdminCliente, async (req, res) => {
         const c = await repos.clientes.obter(cid(req));
         const [planos, faturas] = await Promise.all([
             repos.planos.listar({ soAtivos: true }),

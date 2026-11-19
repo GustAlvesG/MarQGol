@@ -146,8 +146,11 @@ function rotasArquivos({ repos, armazenamento, gerenciador, cfg, mw }) {
         const def = arm.TIPOS_MIDIA[req.params.tipo];
         if (!def) throw new ErroRegra('Tipo de upload desconhecido', 404);
         const clienteId = req.usuario.clienteId;
-        const { lim, maximo } = await limiteDeBytes(clienteId, req);
-        if (!limites.recursoPermitido('midia', lim)) throw new ErroRegra('Comerciais, slides e patrocinadores não fazem parte do seu plano.', 403, 'limite');
+        // Recurso antes do espaço: quem não tem mídia no plano precisa ouvir isso.
+        if (!limites.recursoPermitido('midia', await repos.clientes.limites(clienteId))) {
+            throw new ErroRegra('Comerciais, slides e patrocinadores não fazem parte do seu plano.', 403, 'limite');
+        }
+        const { maximo } = await limiteDeBytes(clienteId, req);
         const nome = logic.sanitizarNomeArquivo(req.query.nome);
         if (!nome || !def.extensoes.includes(path.extname(nome).toLowerCase())) {
             throw new ErroRegra(`Nome inválido ou extensão não permitida (aceitas: ${def.extensoes.join(', ')})`, 400);

@@ -47,6 +47,7 @@ function rotasPublicas({ repos, contas }) {
             nomeCliente: b.nomeCliente, documento: b.documento, telefone: b.telefone,
             nome: b.nome, email: b.email, senha: b.senha, planoId: b.planoId, ip
         });
+        await repos.usuarios.atualizar(usuario.id, { ultimo_login_em: new Date() });
         await iniciarSessao(req, usuario);
         res.status(201).json({ ok: true, destino: '/app/' });
     });
