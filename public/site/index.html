@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1428">
+<meta name="description" content="MarQGol: placar eletrônico em tempo real para futsal, basquete e vôlei. Telão, controle no tablet, agenda de jogos e súmula. Teste grátis por 14 dias.">
+<title>MarQGol — placar eletrônico para futsal, basquete e vôlei</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="/comum/ui.css">
+<link rel="stylesheet" href="/comum/site.css">
+</head>
+<body class="site">
+<header class="site-topo">
+  <a class="marca" href="/">MarQ<span>Gol</span></a>
+  <nav>
+    <a class="link" href="#recursos">Recursos</a>
+    <a class="link" href="#planos">Planos</a>
+    <a class="btn leve" href="/entrar" id="link-entrar">Entrar</a>
+    <a class="btn marca-btn" href="/cadastro">Testar grátis</a>
+  </nav>
+</header>
+
+<main>
+  <section class="heroi">
+    <div>
+      <h1>O placar do seu ginásio, <em>ao vivo</em> no telão.</h1>
+      <p class="sub">Futsal, basquete e vôlei com placar, cronômetro, faltas e sets controlados pelo tablet — e animação de gol com o jogador, patrocinadores e comerciais na TV.</p>
+      <div class="acoes">
+        <a class="btn grande marca-btn" href="/cadastro">Começar teste de 14 dias</a>
+        <a class="btn grande" href="#como-funciona">Como funciona</a>
+      </div>
+      <small class="nota">Sem cartão para testar. Você só paga se continuar.</small>
+    </div>
+    <div class="vitrine" aria-hidden="true">
+      <div class="centro">12:47</div>
+      <div class="lado a">3</div>
+      <div class="lado b">2</div>
+      <div class="nomes"><span>Leões</span><span>Tigres</span></div>
+      <div class="gol">GOL!</div>
+      <div class="faixa"><span>PATROCINADOR</span><span>SUA MARCA</span><span>APOIO</span></div>
+    </div>
+  </section>
+
+  <section class="secao" id="recursos">
+    <h2>Tudo o que o jogo precisa</h2>
+    <p class="sub">Feito com quem opera placar de verdade, em quadra, no tablet.</p>
+    <div class="recursos" id="lista-recursos"></div>
+  </section>
+
+  <section class="secao" id="como-funciona">
+    <h2>Como funciona</h2>
+    <p class="sub">Em poucos minutos o telão está no ar.</p>
+    <div class="passos-site">
+      <div class="passo-site"><b>Crie a conta</b><span>Cadastro rápido, 14 dias grátis com tudo do plano escolhido.</span></div>
+      <div class="passo-site"><b>Cadastre times</b><span>Times, jogadores com foto e a agenda de jogos — ou importe de planilha.</span></div>
+      <div class="passo-site"><b>Ligue a TV</b><span>Abra <b>/telao</b> na TV e digite o código que aparece. Pronto: pareada.</span></div>
+      <div class="passo-site"><b>Opere no tablet</b><span>Carregue o jogo, dê PLAY e marque. O telão acompanha na hora.</span></div>
+    </div>
+  </section>
+
+  <section class="secao" id="planos">
+    <h2>Planos</h2>
+    <p class="sub">Todos começam com 14 dias de teste. Pague por Pix, boleto ou cartão.</p>
+    <div class="planos" id="lista-planos"><p class="vazio">Carregando planos…</p></div>
+  </section>
+</main>
+
+<footer class="rodape-site">
+  <span>MarQGol · placar eletrônico em tempo real</span>
+  <span><a href="/entrar">Entrar</a> · <a href="/cadastro">Criar conta</a> · <a href="/telao">Parear uma TV</a></span>
+</footer>
+
+<script src="/comum/ui.js"></script>
+<script src="/comum/marq.js"></script>
+<script>
+const RECURSOS = [
+    ['board', 'Três esportes, uma tela', 'Futsal, basquete e vôlei com as regras de cada um: faltas, quartos, sets, set point e parciais.'],
+    ['tv', 'Telão sem fio', 'Qualquer TV com navegador vira telão. Pareamento por código, sem instalar nada.'],
+    ['play', 'Gol com o jogador', 'Animação com foto e número de quem marcou, e vídeo de apresentação do atleta.'],
+    ['calendar', 'Agenda de jogos', 'Agende pelo painel ou direto do controle. Cada jogo guarda a súmula lance a lance.'],
+    ['film', 'Comerciais e slides', 'Vídeos de patrocinadores, slides e carrossel de logos durante o jogo.'],
+    ['users', 'Equipe com papéis', 'Administradores e operadores, cada um com seu acesso. Várias quadras ao mesmo tempo.']
+];
+document.getElementById('lista-recursos').innerHTML = RECURSOS.map(([i, t, d]) =>
+    `<div class="recurso">${ic(i)}<h3>${esc(t)}</h3><p>${esc(d)}</p></div>`).join('');
+
+function itensDoPlano(p) {
+    const r = p.recursos || {};
+    const gb = (mb) => mb >= 1024 ? `${Math.round(mb / 1024)} GB` : `${mb} MB`;
+    const itens = [
+        [true, `${p.max_placares} placar${p.max_placares === 1 ? '' : 'es'} (quadras) ao mesmo tempo`],
+        [true, `${p.max_jogos_abertos} jogos agendados em aberto`],
+        [true, `${p.max_usuarios} usuários`],
+        [true, `${gb(p.max_armazenamento_mb)} para fotos, vídeos e slides`],
+        [r.midia !== false, 'Comerciais, slides e patrocinadores'],
+        [!!r.video_jogador, 'Vídeo de apresentação do jogador'],
+        [!!r.arte_propria, 'Arte própria no telão']
+    ];
+    return itens.map(([ok, t]) => `<li class="${ok ? '' : 'nao'}">${ic(ok ? 'check' : 'x')}<span>${esc(t)}</span></li>`).join('');
+}
+
+MARQ.api('GET', '/api/publico/planos').then(planos => {
+    const meio = Math.floor((planos.length - 1) / 2);
+    document.getElementById('lista-planos').innerHTML = planos.map((p, i) => `
+      <div class="plano ${i === meio && planos.length > 1 ? 'destaque' : ''}">
+        <h3>${esc(p.nome)}</h3>
+        <div class="preco">${esc(MARQ.dinheiro(p.preco_centavos))} <small>/mês</small></div>
+        <p style="color:var(--muted);margin:0">${esc(p.descricao)}</p>
+        <ul>${itensDoPlano(p)}</ul>
+        <a class="btn ${i === meio ? 'marca-btn' : 'claro'} bloco" href="/cadastro?plano=${p.id}">Testar ${p.dias_teste} dias grátis</a>
+      </div>`).join('') || '<p class="vazio">Planos em breve.</p>';
+}).catch(() => {
+    document.getElementById('lista-planos').innerHTML = '<p class="vazio">Não foi possível carregar os planos agora.</p>';
+});
+
+// Já logado? O botão "Entrar" vira "Abrir o painel".
+fetch('/api/auth/eu', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : null).then(eu => {
+    if (!eu) return;
+    const a = document.getElementById('link-entrar');
+    a.textContent = 'Abrir o painel';
+    a.href = eu.superadmin ? '/admin/' : '/app/';
+}).catch(() => {});
+</script>
+</body>
+</html>

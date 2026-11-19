@@ -1,7 +1,13 @@
-# Placar Clube — Documentação Técnica
+# MarQGol — Documentação Técnica
 
 Público: desenvolvedores que vão manter, corrigir ou estender o sistema.
 Para operar o placar num jogo, veja o [Manual do Usuário](manual-do-usuario.md).
+
+> **Branch `saas` (MarQGol):** vários clientes, placares, agenda e cobrança.
+> Banco, rotas, autenticação, pareamento de TV, cobrança e deploy estão em
+> [saas/arquitetura.md](saas/arquitetura.md). Este documento continua valendo
+> para regra de jogo, estado, eventos de socket, telão e telas de operação — com
+> a diferença de que tudo agora acontece **por placar** (sala `placar:<id>`).
 
 ---
 
@@ -16,7 +22,7 @@ Para operar o placar num jogo, veja o [Manual do Usuário](manual-do-usuario.md)
 7. [Módulo `server.js`](#7-módulo-serverjs)
 8. [Contrato Socket.IO](#8-contrato-socketio)
 9. [Endpoints HTTP](#9-endpoints-http)
-10. [Integração com a API Laravel](#10-integração-com-a-api-laravel)
+10. [Agenda e súmula](#10-agenda-e-súmula-antes-api-laravel)
 11. [Frontend](#11-frontend)
 12. [O telão em detalhe](#12-o-telão-em-detalhe)
 13. [Testes](#13-testes)
@@ -77,46 +83,7 @@ O `.env` é lido por um carregador próprio ([env.js](../env.js)), sem `dotenv`.
 
 ## 3. Estrutura de pastas
 
-```
-placar-clube-2/
-├── server.js              # Transporte: Express + Socket.IO, estado global, integração
-├── gameLogic.js           # Regras do jogo — funções puras, sem rede
-├── placarApi.js           # Cliente HTTP da API Laravel (sem estado)
-├── placarEventos.js       # Fila de eventos para a API (uuid, sequência, estorno, lote)
-├── env.js                 # Carregador mínimo de .env
-├── .env.example           # LARAVEL_BASE_URL e LARAVEL_API_TOKEN
-├── nodemon.json           # Observa só server.js e gameLogic.js
-├── setup.sh               # Instalação Linux + serviço systemd
-├── setup.ps1              # Instalação Windows
-├── docs/
-│   ├── README.md                  # Índice da documentação
-│   ├── documentacao-tecnica.md    # Este arquivo
-│   ├── manual-do-usuario.md       # Manual dos operadores
-│   └── prompt-api-parciais.md     # Pedido de mudança para o time Laravel
-├── test/
-│   ├── gameLogic.test.js
-│   ├── placarApi.test.js
-│   ├── placarEventos.test.js
-│   └── lances.test.js
-└── public/                # Servido estaticamente
-    ├── index.html         # Telão
-    ├── static.html        # Placar minimalista (só números), sem arte
-    ├── placar-neutro.html # Placar neutro claro/escuro, só pela URL
-    ├── style.css          # Estilos do telão
-    ├── base/              # Arte do telão (VERSIONADA no Git)
-    │   ├── background.png, FUNDO.png, waiting.mp4
-    │   └── futsal/ basquete/ volei/   # box.png, CAIXA.png, element-*.png
-    ├── videos/            # Comerciais        (gitignored, criada no boot)
-    ├── slides/            # Slides            (gitignored, criada no boot)
-    ├── patrocinadores/    # Logos do carrossel(gitignored, criada no boot)
-    └── controle/
-        ├── ui.css / ui.js             # Base visual e diálogos da configuração e da mídia
-        ├── index.html                 # /controle/ → redireciona p/ controle.html#preparar
-        ├── configuracao.html          # Configuração
-        ├── controle.html              # Controle (única p/ os 3 esportes)
-        ├── controle_anuncios.html     # Mídia: vídeos, slides, patrocinadores
-        └── controle_{futsal,basquete,volei}.html  # Só redirecionam p/ controle.html
-```
+Ver [saas/arquitetura.md](saas/arquitetura.md) e o mapa do código no `CLAUDE.md`. Resumo: `gameLogic.js` e `placarEventos.js` na raiz; backend em `src/`; páginas em `public/` (`site/`, `app/`, `admin/`, `telao/`, `placar/`, `controle/`, `comum/`, `arte-padrao/`); testes em `test/`.
 
 ---
 
@@ -344,29 +311,7 @@ em `public/index.html`, `public/controle/controle.html` e `public/placar-neutro.
 
 ## 7. Módulo `server.js`
 
-Responsabilidades:
-
-1. **Estáticos** de `public/` (via `__dirname`, para funcionar sob systemd/pm2).
-   `.html/.css/.js` saem com `Cache-Control: no-cache` — o telão fica dias aberto e
-   precisa pegar deploys novos; o ETag responde 304 quando nada mudou. Mídias usam
-   o cache padrão.
-2. **Pastas de mídia**: cria `videos/`, `patrocinadores/` e `slides/` no boot se
-   faltarem.
-3. **Estado**: `gameState` global, `payloadEstado()` e `broadcast()`.
-4. **Sincronização de pastas**:
-   - `sincronizarPatrocinadores()` — no boot e após upload/exclusão de logo.
-   - `sincronizarVideoStandby()` — no boot e **a cada conexão de socket**; só
-     rebroadcast se o vídeo mudou. Trocar o vídeo da pasta e recarregar o telão
-     basta.
-5. **Upload/exclusão** HTTP (seção 9).
-6. **Handlers Socket.IO** (seção 8).
-7. **Integração** com a API Laravel (seção 10).
-8. Escuta em **`0.0.0.0:4000`** apenas quando executado diretamente
-   (`require.main === module`). Exporta `{ app, server, io }` — útil para subir
-   uma instância de teste em outra porta:
-   ```bash
-   node -e "const {server}=require('./server.js'); server.listen(4100,'0.0.0.0',()=>console.log('up'))"
-   ```
+`server.js` é só a entrada. O transporte que ele fazia está em `src/placares/gerenciador.js` (estado por placar, `payloadEstado()`, `broadcast()` por sala, súmula, gravação no Postgres) e `src/placares/sockets.js` (autorização e handlers). Montagem do app em `src/app.js`.
 
 ---
 
@@ -418,128 +363,28 @@ Respostas com ack seguem `{ ok: true, dado }` ou `{ ok: false, status?, erro, co
 
 ## 9. Endpoints HTTP
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/api/upload/:tipo?nome=<arquivo>` | corpo da requisição gravado em disco por *stream* (sem multer) |
-| `DELETE` | `/api/:tipo/:nome` | apaga o arquivo |
-
-`:tipo` ∈ `video` (→ `public/videos/`), `patrocinador` (→ `public/patrocinadores/`),
-`slide` (→ `public/slides/`). O nome passa por `sanitizarNomeArquivo()` e a extensão
-precisa estar na lista do tipo. Upload abortado remove o arquivo parcial.
-
-Após qualquer mudança: vídeos → `lista_videos` para todos; slides → `lista_slides`;
-patrocinadores → relê a pasta e faz `broadcast()`.
-
-`public/base/` **não** tem endpoint nem UI de upload (fica fora de `TIPOS_ARQUIVO`
-de propósito): é arte fixa versionada no Git.
-
-> Não há autenticação nem limite de tamanho nesses endpoints — assume-se rede local
-> confiável. Ver seção 15.
+Ver a seção 4 de [saas/arquitetura.md](saas/arquitetura.md). Uploads de mídia: `POST /api/midia/:tipo?nome=` e `DELETE /api/midia/:tipo/:nome`, por cliente, com cota do plano.
 
 ---
 
-## 10. Integração com a API Laravel
+## 10. Agenda e súmula (antes: API Laravel)
 
-### 10.1 Configuração
+A integração com a API Laravel saiu do MarQGol (continua no branch `cfcsn`).
+A agenda e a súmula são internas — ver "Agenda e súmula" no `CLAUDE.md` e a
+seção 6 de [saas/arquitetura.md](saas/arquitetura.md). O contrato de socket do
+controle (`placar_chamar`, `placar_carregar_jogo`, …) e a tradução de ações em
+eventos (`placarEventos.js`, tabela abaixo) continuam iguais.
 
-```env
-# .env (copie de .env.example)
-LARAVEL_BASE_URL=http://localhost:8000   # sem /api/placar
-LARAVEL_API_TOKEN=1|AbCd...              # token Sanctum com a ability placar:operar
-```
-
-Sem as duas variáveis o servidor loga um aviso e opera em modo manual
-(`statusConexao: 'nao_configurado'`); a tela de configuração desabilita os modos
-de API.
-
-### 10.2 `placarApi.js` — cliente HTTP
-
-- Todas as funções recebem `config = { baseUrl, token, fetchImpl? }` como 1º
-  argumento (testável sem mock de módulo; `fetchImpl` só nos testes).
-- Prefixo `/api/placar`, cabeçalho `Authorization: Bearer <token>`, JSON.
-- Status fora de 2xx → `ErroPlacarApi` com `status` e `corpo`. Interpretação:
-  401 parar e avisar; 403 configuração; 404 ids dessincronizados; 422 payload
-  inválido; 429 requisições rápidas demais.
-- `enviarVideoJogador` é a exceção: multipart (`video`, mp4/webm, ≤ 28 MB), não
-  base64 — sem UI ainda.
-
-Endpoints cobertos: `ping`, `modalidades`, `equipes` (+logo), `times` (+elenco,
-+logo), `jogadores` (+foto, +vídeo), `jogos` (listar, obter, criar, iniciar,
-escalação, eventos, encerrar, súmula, atuação do jogador), `scout/jogadores/{id}`.
-`GET /scout/artilharia` **foi removido** da API.
-
-### 10.3 `placarEventos.js` — fila de eventos
-
-O log da API é **append-only**. O módulo:
-
-1. Gera `uuid` (idempotência) e `sequencia` (ordem) **no momento da ação**, não do
-   envio — um retry reenvia o mesmo uuid.
-2. Acumula eventos e envia **em lote** (`POST /jogos/{id}/eventos`).
-3. Traduz correções (`sub_ponto`, `sub_falta`, `sub_set`, `reabrir_set`) em evento
-   `estorno` que referencia o uuid original (via `ultimosPorChave`, chave
-   `"timeA:ponto"` etc.). Sem rastro em memória (ex.: servidor reiniciado),
-   `criarEstorno` devolve `null` e só o placar local é ajustado.
-4. `estornarEvento(fila, uuid, motivo)` estorna um evento **específico** pelo uuid —
-   é o caminho de `estornar_lance` (a mesa corrige qualquer lance da lista, não só
-   o último de cada time). Esquece as chaves de `ultimosPorChave` que apontavam
-   para aquele uuid, para um `sub_ponto` posterior não estornar o mesmo evento.
-
-Tradução de ações:
-
-| Ação local | Evento na API |
+| Ação local | Evento na súmula |
 |---|---|
 | `add_ponto` | `ponto` (`valor`, `jogador_id`, `periodo`, `cronometro_ms`) |
 | `add_falta` | `falta` (`jogador_id`, `periodo`, `cronometro_ms`) |
-| `add_set` / `fechar_set` | `set` (`fechar_set` leva `payload: { numero, placar_casa, placar_visitante }`; `time_id` `null` em quarto empatado) |
+| `add_set` / `fechar_set` | `set` (`fechar_set` leva `payload: { numero, placar_casa, placar_visitante }`) |
 | `sub_*` / `reabrir_set` | `estorno` (pelo último uuid da chave) |
-| `estornar_lance` | `estorno` do uuid daquele lance (`integracao.uuidPorLance`) |
-| `zerar_faltas` | **ignorado** |
+| `estornar_lance` | `estorno` do uuid daquele lance |
 | `add_periodo` / `sub_periodo` | `periodo` |
 | cronômetro `play`/`pause`/`set` | `crono_play` / `crono_pause` / `crono_set` |
-| `zerar_tudo` | **ignorado** (não existe "desfazer tudo" no log) |
-
-`cronometro_ms` é **obrigatório** em `ponto`/`falta`: vem de
-`gameLogic.tempoDecorrido()` (nunca de `tempoAcumulado`, que congela com o relógio
-rodando) e é normalizado para inteiro ≥ 0.
-
-`enviarPendentes` remove da fila os uuids **aceitos, duplicados e rejeitados**
-(rejeitado também foi processado); eventos registrados durante um envio em voo
-permanecem para o próximo lote.
-
-### 10.4 Bookkeeping em `server.js`
-
-O objeto `integracao` (`jogoId`, `timeAId`, `timeBId`, `fila`, `statusConexao`,
-`ultimoErro`, `iniciado`, `uuidPorLance`) fica **fora** do `gameState`: é
-transporte, não regra. `uuidPorLance` liga o id de cada lance ao uuid do evento
-enviado; é zerado ao carregar jogo e em `zerar_configuracao_completa`.
-
-- `aplicarJogoNoEstado(resposta)` — faz `zerar_tudo`, copia esporte, nomes, logos
-  (`logo_url`) e elencos (`mapearElencoApi`), e reinicia a fila.
-- `iniciarJogoNaApi()` — `POST /iniciar`; retoma a sequência de
-  `ultima_sequencia` (idempotente em reconexões). Chamado pelo botão manual **e
-  automaticamente no primeiro PLAY** do cronômetro (`integracao.iniciado`).
-- `tentarEnviarPendentes()` — nunca lança; roda após cada evento e a cada **5 s**
-  (`setInterval(...).unref()`).
-- `placar_encerrar_jogo` esvazia a fila antes de encerrar; a resposta pode trazer
-  `observacoes` (divergência para conferência humana).
-- `ACOES_PLACAR_API` — mapa do dispatcher `placar_chamar`: `ping`,
-  `listarModalidades`, `listarEquipes`, `criarEquipe`, `enviarLogoEquipe`,
-  `removerLogoEquipe`, `listarTimes`, `elencoDoTime`, `criarTime`,
-  `enviarLogoTime`, `removerLogoTime`, `criarJogador`, `enviarFotoJogador`,
-  `removerFotoJogador`, `removerVideoJogador`, `listarJogos`, `sumulaDoJogo`,
-  `atuacaoDoJogador`, `perfilJogador`.
-
-Atualizações de placar são **otimistas**: o telão atualiza antes de qualquer
-chamada à API; a sincronização acontece em segundo plano.
-
-### 10.5 Pendência no contrato: parciais
-
-A API recebe as parciais (no `payload` do evento `set`) mas ainda **não as
-devolve** em `GET /jogos/{id}`. Assim a grade "set a set" só existe na memória do
-Node. O pedido ao time Laravel está em
-[prompt-api-parciais.md](prompt-api-parciais.md). Os comentários do código citam
-`docs/placar-clube-api.md` (contrato da API), que **não está neste repositório** —
-é mantido pelo time Laravel.
+| `zerar_tudo`, `zerar_faltas` | ignorados |
 
 ---
 
@@ -881,61 +726,13 @@ placar, limpar o estado e os arquivos enviados ao final.
 
 ## 14. Instalação, execução e deploy
 
-### Desenvolvimento
-
-```bash
-npm install
-cp .env.example .env     # opcional: integração com a API
-npm run dev              # nodemon, porta 4000
-```
-
-### Produção (Linux)
-
-`bash setup.sh` (sem sudo): verifica node/npm/git/systemd, clona ou faz `git pull`,
-`npm install --omit=dev` e registra o serviço systemd `placar-clube`
-(`Restart=on-failure`). Rodar de novo atualiza e reinicia.
-
-```bash
-systemctl status placar-clube
-sudo systemctl restart placar-clube
-journalctl -u placar-clube -f
-```
-
-### Produção (Windows)
-
-`.\setup.ps1`: verifica pré-requisitos, clona, instala, roda os testes e oferece
-`npm start`. Não registra serviço.
-
-### URLs (porta 4000)
-
-| Tela | URL |
-|---|---|
-| Telão | `http://<ip>:4000/` |
-| Controle, aba Preparar (entrada do operador) | `http://<ip>:4000/controle/` |
-| Configuração | `http://<ip>:4000/controle/configuracao.html` |
-| Controle | `http://<ip>:4000/controle/controle.html` |
-| Mídia | `http://<ip>:4000/controle/controle_anuncios.html` |
-| Placar simples | `http://<ip>:4000/static.html` |
-| Placar neutro (claro/escuro) | `http://<ip>:4000/placar-neutro.html` (`?tema=claro` ou `?tema=escuro`) |
-
-A porta está fixa no código (`server.listen(4000, ...)`).
+Ver a seção 7 (deploy) de [saas/arquitetura.md](saas/arquitetura.md). Desenvolvimento: `npm install`, `cp .env.example .env`, `npm run db` num terminal e `npm run dev` noutro. URLs de um placar: `/p/<id>/` (telão), `/p/<id>/controle/controle.html`.
 
 ---
 
 ## 15. Limitações conhecidas e dívidas técnicas
 
-- **Estado só em memória** — reiniciar perde placar, parciais e a fila de eventos
-  ainda não enviados à API.
-- **Um jogo por processo.**
-- **Sem autenticação** nos sockets e nos endpoints de upload/exclusão; **sem limite
-  de tamanho** de upload. Pressupõe rede local confiável.
-- **Handlers síncronos sem `try/catch`** (`comando_placar`, `comando_cronometro`,
-  `configurar_jogo`) — payload malformado (ex.: `time` inválido) pode lançar.
-- **Fotos/logos em base64** trafegam inteiras em todo `atualizar_tela`.
-- **Dependências de CDN** só para importar planilha (SheetJS) e converter PDF (pdf.js); fontes do Google têm fallback. Tailwind saiu de todas as telas.
-- **Parciais não voltam da API** (10.5).
-- Bloco de `clockOffset` repetido no telão, na mesa e no placar neutro.
-- `.gitignore` lista `CLAUDE.md`, mas o arquivo já é versionado (continua rastreado).
+Ver "Limitações conhecidas" no `CLAUDE.md`.
 
 ---
 

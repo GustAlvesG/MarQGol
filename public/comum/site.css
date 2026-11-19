@@ -1,0 +1,93 @@
+/* Site público do MarQGol (venda, login, cadastro). Usa os tokens de
+   /comum/ui.css; aqui só o que é próprio das páginas de fora do app. */
+:root { --marca: #f5b82e; --azul: #1d3f8a; }
+body.site { min-height: 100vh; background: radial-gradient(ellipse 120% 70% at 50% -10%, #17306a 0%, #0b1428 45%, var(--bg) 75%); }
+.marca { font-family: var(--f-num); font-size: 34px; letter-spacing: .04em; color: var(--fg); text-decoration: none; line-height: 1; }
+.marca span { color: var(--marca); }
+
+/* ---------- Topo ---------- */
+.site-topo { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1180px; margin: 0 auto; padding: 18px 20px; }
+.site-topo nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.site-topo nav a.link { color: var(--muted); text-decoration: none; font-family: var(--f-rot); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 10px 12px; }
+.site-topo nav a.link:hover { color: var(--fg); }
+.btn.marca-btn { background: var(--marca); color: #1b1300; border-color: var(--marca); }
+
+/* ---------- Herói ---------- */
+.heroi { max-width: 1180px; margin: 0 auto; padding: 48px 20px 32px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
+.heroi h1 { font-family: var(--f-rot); font-weight: 800; font-size: clamp(38px, 5.2vw, 64px); line-height: 1.02; letter-spacing: .01em; text-transform: uppercase; margin: 0 0 18px; }
+.heroi h1 em { font-style: normal; color: var(--marca); }
+.heroi p.sub { font-size: 20px; color: #c9d6ea; line-height: 1.5; margin: 0 0 28px; max-width: 34em; }
+.heroi .acoes { display: flex; gap: 12px; flex-wrap: wrap; }
+.heroi small.nota { display: block; color: var(--muted); margin-top: 12px; }
+
+/* Placar de vitrine (só desenho, sem dados reais). */
+.vitrine { position: relative; aspect-ratio: 2 / 1; border-radius: 22px; overflow: hidden; background: linear-gradient(180deg, #0d1a38, #13285a 55%, #0f1f44 88.8%, #060a14 88.9%); box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.08); container-type: inline-size; }
+.vitrine .lado { position: absolute; top: 28%; width: 22%; aspect-ratio: 1; border-radius: 3cqw; background: #0a1222; border: .35cqw solid #c9d6ea; display: grid; place-items: center; font-family: var(--f-num); font-size: 13cqw; line-height: 1; }
+.vitrine .lado.a { left: 7%; } .vitrine .lado.b { right: 7%; }
+.vitrine .centro { position: absolute; left: 33%; right: 33%; top: 16%; height: 22%; border-radius: 1.6cqw; background: #0a1222; border: .35cqw solid #c9d6ea; display: grid; place-items: center; font-family: var(--f-num); font-size: 8cqw; color: var(--marca); }
+.vitrine .nomes { position: absolute; left: 7%; right: 7%; top: 74%; display: flex; justify-content: space-between; font-family: var(--f-rot); font-weight: 800; font-size: 3.4cqw; letter-spacing: .05em; text-transform: uppercase; }
+.vitrine .faixa { position: absolute; left: 0; right: 0; bottom: 0; height: 11.1%; display: flex; align-items: center; justify-content: center; gap: 6cqw; color: #5d6a7e; font-family: var(--f-rot); font-weight: 700; font-size: 2.2cqw; letter-spacing: .2em; }
+.vitrine .gol { position: absolute; left: 0; right: 0; top: 46%; transform: translateY(-50%); padding: 2cqw 0; background: linear-gradient(100deg, #07112a, #143a8a 42%, #1f4fb5 68%, #0d1a38); border-block: .35cqw solid #ffd76a; text-align: center; font-family: var(--f-num); font-size: 7cqw; letter-spacing: .06em; animation: gol 6s ease-in-out infinite; }
+@keyframes gol { 0%, 55%, 100% { opacity: 0; clip-path: inset(0 100% 0 0); } 62%, 90% { opacity: 1; clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .vitrine .gol { animation: none; opacity: 0; } }
+
+/* ---------- Seções ---------- */
+.secao { max-width: 1180px; margin: 0 auto; padding: 40px 20px; }
+.secao > h2 { font-family: var(--f-rot); font-weight: 800; font-size: 34px; letter-spacing: .03em; text-transform: uppercase; margin: 0 0 8px; }
+.secao > p.sub { color: var(--muted); font-size: 18px; margin: 0 0 24px; }
+.recursos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.recurso { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px; }
+.recurso svg.i { font-size: 30px; color: var(--marca); }
+.recurso h3 { font-family: var(--f-rot); font-size: 21px; letter-spacing: .04em; text-transform: uppercase; margin: 10px 0 6px; }
+.recurso p { color: var(--muted); margin: 0; line-height: 1.5; }
+
+.planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.plano { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+.plano.destaque { border-color: var(--marca); box-shadow: 0 0 0 1px var(--marca) inset; }
+.plano h3 { font-family: var(--f-rot); font-size: 26px; letter-spacing: .04em; text-transform: uppercase; margin: 0; }
+.plano .preco { font-family: var(--f-num); font-size: 46px; line-height: 1; }
+.plano .preco small { font-family: var(--f-txt); font-size: 15px; color: var(--muted); }
+.plano ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; color: #c9d6ea; flex: 1; }
+.plano li { display: flex; gap: 8px; align-items: flex-start; }
+.plano li svg.i { color: var(--ok); margin-top: 3px; }
+.plano li.nao { color: var(--faint); }
+.plano li.nao svg.i { color: var(--faint); }
+
+.passos-site { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: p; }
+.passo-site { padding: 18px; border-radius: 18px; background: var(--surface-2); }
+.passo-site::before { counter-increment: p; content: counter(p); display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--marca); color: #1b1300; font-family: var(--f-rot); font-weight: 800; font-size: 19px; margin-bottom: 10px; }
+.passo-site b { display: block; font-family: var(--f-rot); font-size: 19px; letter-spacing: .03em; text-transform: uppercase; margin-bottom: 4px; }
+.passo-site span { color: var(--muted); }
+
+.rodape-site { max-width: 1180px; margin: 0 auto; padding: 32px 20px 48px; color: var(--faint); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--line); }
+.rodape-site a { color: var(--muted); }
+
+/* ---------- Formulários (entrar, cadastro…) ---------- */
+.caixa-form { max-width: 480px; margin: 24px auto 64px; padding: 0 16px; }
+.caixa-form.larga { max-width: 760px; }
+.caixa-form .cartao h1 { font-family: var(--f-rot); font-weight: 800; font-size: 30px; letter-spacing: .03em; text-transform: uppercase; margin: 0; }
+.caixa-form .cartao > p { color: var(--muted); margin: 0; }
+.caixa-form form { display: flex; flex-direction: column; gap: 14px; }
+.caixa-form .grade-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.caixa-form .rodape-form { text-align: center; color: var(--muted); }
+.caixa-form .rodape-form a { color: var(--fg); }
+.erro-form { background: var(--perigo-fundo); color: #ffb4b4; padding: 12px 14px; border-radius: 12px; }
+.ok-form { background: var(--ok-fundo); color: #9ff0bf; padding: 12px 14px; border-radius: 12px; }
+.escolha-plano { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.escolha-plano label { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line); background: var(--bg); cursor: pointer; }
+.escolha-plano label:has(input:checked) { border-color: var(--marca); background: #1f1806; }
+.escolha-plano input { position: absolute; opacity: 0; pointer-events: none; }
+.escolha-plano b { font-family: var(--f-rot); font-size: 19px; letter-spacing: .04em; text-transform: uppercase; }
+.escolha-plano span { color: var(--muted); font-size: 14px; }
+.check { display: flex; gap: 10px; align-items: flex-start; color: var(--muted); font-size: 15px; }
+.check input { width: 22px; height: 22px; margin-top: 1px; accent-color: var(--marca); flex: none; }
+
+@media (max-width: 900px) {
+    .heroi { grid-template-columns: 1fr; padding-top: 24px; }
+    .recursos { grid-template-columns: 1fr 1fr; }
+    .passos-site { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+    .recursos, .passos-site, .caixa-form .grade-2 { grid-template-columns: 1fr; }
+    .site-topo nav a.link { display: none; }
+}

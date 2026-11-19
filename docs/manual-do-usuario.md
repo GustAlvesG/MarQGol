@@ -1,4 +1,4 @@
-# Placar Clube — Manual do Usuário
+# MarQGol — Manual do Usuário
 
 Este manual é para quem **opera o placar** durante os jogos: a equipe da mesa,
 quem cuida do telão e quem cuida dos anúncios. Não é preciso saber programar.
@@ -7,7 +7,7 @@ quem cuida do telão e quem cuida dos anúncios. Não é preciso saber programar
 
 ## Sumário
 
-1. [O que é o Placar Clube](#1-o-que-é-o-placar-clube)
+1. [O que é o MarQGol](#1-o-que-é-o-marqgol)
 2. [Antes do jogo: o que você precisa](#2-antes-do-jogo-o-que-você-precisa)
 3. [As telas do sistema](#3-as-telas-do-sistema)
 4. [Preparar o telão](#4-preparar-o-telão)
@@ -22,57 +22,66 @@ quem cuida do telão e quem cuida dos anúncios. Não é preciso saber programar
 
 ---
 
-## 1. O que é o Placar Clube
+## 1. O que é o MarQGol
 
-É o placar eletrônico do clube para **futsal, basquete e vôlei**. Um computador
-(o *servidor*) fica ligado na rede do ginásio, e todas as outras telas se conectam
-a ele pelo navegador:
+É um placar eletrônico pela internet para **futsal, basquete e vôlei**. Não há
+nada para instalar: tudo funciona no navegador.
 
-- o **telão** (TV ou projetor) mostra o placar para o público;
-- o **tablet da mesa** marca pontos, faltas, sets e controla o cronômetro;
-- um computador ou tablet pode cuidar dos **anúncios** (vídeos e slides).
+- o **telão** (qualquer TV ou projetor com navegador) mostra o placar para o público;
+- o **tablet** marca pontos, faltas, sets e controla o cronômetro;
+- a **área do cliente** (computador ou celular) guarda a agenda de jogos, os
+  times e jogadores, os placares (quadras), a equipe e a assinatura.
 
-Tudo que o Controle faz aparece **na hora** em todos os telões.
-
-Quando o jogo está cadastrado no sistema do clube (a "API"), cada ponto e falta
-também vai para a **súmula oficial**, automaticamente.
+Tudo que o Controle faz aparece **na hora** no telão. Quando o jogo vem da
+**agenda**, cada ponto e falta também vai para a **súmula** do jogo.
 
 ---
 
 ## 2. Antes do jogo: o que você precisa
 
-- O **servidor** ligado e com o Placar Clube rodando.
-- O **endereço do servidor** na rede, por exemplo `192.168.1.50`. Pergunte a quem
-  instalou o sistema. Nos exemplos abaixo usamos `192.168.1.50`.
-- Todos os aparelhos (telão, tablet, computador) **na mesma rede** do servidor.
-- **Internet** nos aparelhos de controle (as telas de controle carregam alguns
-  recursos da internet, como a importação de planilhas e de PDF).
+- Uma **conta** no MarQGol (o administrador cria pelo site e convida a equipe
+  em **Usuários**). Teste grátis de 14 dias.
+- **Internet** no ginásio, no telão e no tablet. Se a internet cair, o telão
+  fica parado no último placar e o controle mostra "Sem conexão" até voltar.
 - Um navegador atualizado — **Chrome** ou **Edge** são os recomendados.
+- A TV **pareada** com o placar (seção 4) — só na primeira vez.
 
 ---
 
 ## 3. As telas do sistema
 
-| Tela | Endereço | Quem usa |
+| Tela | Onde | Quem usa |
 |---|---|---|
-| **Telão** | `http://192.168.1.50:4000` | a TV/projetor |
-| **Controle (entrada)** | `http://192.168.1.50:4000/controle/` | abre o Controle na aba Preparar |
-| **Configuração** | `http://192.168.1.50:4000/controle/configuracao.html` | editar elenco e logos, jogo avulso ou manual |
-| **Controle** | `http://192.168.1.50:4000/controle/controle.html` | no tablet: preparar, marcar e controlar o telão |
-| **Mídia** | `http://192.168.1.50:4000/controle/controle_anuncios.html` | enviar e organizar comerciais, slides e patrocinadores |
+| **Site / Entrar** | `marqgol.artzan.tech/entrar` | todos |
+| **Área do cliente** | `marqgol.artzan.tech/app` | agenda, times, placares, mídia, arte, usuários, assinatura |
+| **Controle** | Área do cliente → Placares → **Abrir controle** | o tablet: preparar, marcar e controlar o telão |
+| **Configuração** e **Mídia** | abas no topo do Controle | elenco e logos do jogo; comerciais, slides e patrocinadores |
+| **Telão** | na TV: `marqgol.artzan.tech/telao` | a TV (pareada uma vez) |
 
-> Dica: salve esses endereços como favoritos (ou atalho na tela inicial) em cada
-> aparelho. Atalhos antigos como `controle_futsal.html`, `controle_basquete.html` e
-> `controle_volei.html` continuam funcionando — eles levam para o Controle.
+Cada **placar** é uma quadra: tem seu próprio jogo, seu controle e suas TVs.
+Com dois placares, dá para ter dois jogos ao mesmo tempo. Quantos placares e
+quantos jogos em aberto você pode ter depende do plano.
 
-Você pode abrir várias telas ao mesmo tempo, em vários aparelhos. Todas ficam
-sincronizadas.
+> Dica: salve o endereço do Controle como favorito (ou atalho na tela inicial)
+> no tablet. Você pode abrir várias telas ao mesmo tempo; todas ficam sincronizadas.
 
 ---
 
 ## 4. Preparar o telão
 
-1. No computador ligado à TV, abra o **Chrome** ou **Edge** no endereço do telão.
+**Primeira vez — parear a TV com o placar:**
+
+1. Na TV (ou no computador ligado a ela), abra o **Chrome** ou **Edge** em
+   `marqgol.artzan.tech/telao`. Aparece um **código de 6 dígitos**.
+2. No celular ou tablet, entre na área do cliente → **Placares** → **Parear TV**
+   no placar certo, digite o código e escolha o tipo (telão, placar simples ou
+   placar neutro).
+3. A TV abre o placar sozinha. Das próximas vezes, `/telao` já leva direto a ele.
+   Para desligar uma TV, revogue-a na mesma tela de Placares.
+
+**A cada jogo:**
+
+1. Abra o telão na TV (`marqgol.artzan.tech/telao`).
 2. **Clique uma vez** na tela (ou aperte qualquer tecla). Isso:
    - coloca o telão em **tela cheia**;
    - **libera o som** dos vídeos.
@@ -106,11 +115,11 @@ Transmissão**, **3 Esporte** e os dois times.
 
 ### 5.1 Selecionar jogo (recomendado)
 
-Use quando o jogo **já está cadastrado** no sistema do clube. É o caminho
-preferido: tudo o que for marcado vai para a súmula oficial.
+Use quando o jogo **já está cadastrado** na agenda. É o caminho
+preferido: tudo o que for marcado vai para a súmula.
 
-1. Em **1 Jogo**, toque em **Selecionar jogo**. Com o sistema do clube ligado, a
-   tela já abre assim e já busca.
+1. Em **1 Jogo**, toque em **Selecionar jogo**. A tela já abre assim e
+   já busca.
 2. Se quiser, escolha o **status** (Agendado, Ao vivo, Encerrado ou todos) e a
    data, e toque em **Buscar jogos**.
 3. Na lista, toque em **Carregar** no jogo desejado.
@@ -122,16 +131,16 @@ nomes, fotos), toque em **Salvar configuração** para o telão receber a mudan�
 
 Opcional, ainda nessa tela:
 
-- **Titular / capitão**: com jogo do sistema carregado, cada jogador ganha os
-  botões **T** e **C**. Marque e toque em **Salvar escalação na API** do time.
+- **Titular / capitão**: com jogo da agenda carregado, cada jogador ganha os
+  botões **T** e **C**. Marque e toque em **Salvar escalação do jogo** do time.
   Isso substitui a escalação salva antes.
 - **Marcar ao vivo agora**: marca a partida como "ao vivo". Não é obrigatório,
   **o primeiro ▶ PLAY do cronômetro já faz isso sozinho**.
 
 ### 5.2 Criar jogo agora (avulso)
 
-Use quando o jogo **não está cadastrado**, mas você quer que ele entre no sistema
-do clube.
+Use quando o jogo **não está cadastrado**, mas você quer que ele entre na agenda
+(com súmula). Conta no limite de jogos em aberto do plano.
 
 1. Escolha o **esporte** e preencha os nomes do **Time A** e do **Time B**.
 2. Em **1 Jogo → Criar jogo agora**, informe **categoria** (padrão: Adulto) e
@@ -139,10 +148,9 @@ do clube.
 3. Toque em **Criar times e jogo agora**. O sistema reaproveita os times que já
    existirem com o mesmo nome, cria o jogo e o carrega no telão.
 
-### 5.3 Manual (sem API)
+### 5.3 Manual (sem súmula)
 
-Use só quando não há sistema do clube disponível (sem internet, jogo amistoso
-etc.). **Nada vai para a súmula oficial.**
+Use só quando o jogo não precisa ficar na agenda (treino, amistoso). **Nada vai para a súmula.**
 
 1. Em **3 Esporte**, escolha o esporte.
 2. Preencha **Time A · casa** e **Time B · visitante**: nome e, se quiser, logo
@@ -169,7 +177,7 @@ Para cada time:
     opcional).
   - As fotos são adicionadas depois, uma a uma.
 - Jogadores com o ícone de **câmera de vídeo** têm vídeo de apresentação
-  cadastrado no sistema do clube: no telão, ao marcar ponto, o vídeo toca antes
+  cadastrado na agenda: no telão, ao marcar ponto, o vídeo toca antes
   da faixa.
 
 > Cadastrar o elenco é o que permite escolher **quem marcou** no Controle. Sem elenco,
@@ -184,7 +192,7 @@ botão encerra a transmissão. (No Controle, a aba **Telão** faz o mesmo.)
 ### 5.6 Zerar tudo
 
 No fim da tela de Configuração. **Apaga tudo**: esporte, nomes, logos, elenco,
-placar, cronômetro e o vínculo com o jogo do sistema do clube. Use **só ao
+placar, cronômetro e o vínculo com o jogo do agenda do MarQGol. Use **só ao
 terminar um jogo e antes de preparar o próximo**. Para evitar acidente, é preciso
 **segurar o botão** até a barra encher (pouco mais de 1 segundo).
 
@@ -205,11 +213,11 @@ abas no topo, na ordem do dia de jogo:
 | **Telão** | decidir o que vai ao ar: placar, slides, espera ou comerciais |
 
 Ao lado das abas ficam sempre visíveis o esporte, se o **telão está no ar** e o
-estado do envio ao sistema do clube.
+estado do envio ao agenda do MarQGol.
 
 ### 6.1 Preparar
 
-- **Jogos**: os jogos do dia vindos do sistema do clube. Use **‹ ›** para ver
+- **Jogos**: os jogos do dia vindos do agenda do MarQGol. Use **‹ ›** para ver
   outros dias e **⟳** para atualizar. Toque em **Carregar** no jogo certo. Se já
   houver outro jogo carregado, a própria linha pergunta se você quer trocar (trocar
   zera o placar do Controle).
@@ -244,8 +252,8 @@ Jogo fora da lista ou sem internet? Monte-o à mão na **Configuração** (seç�
 
 - **Toque no relógio** para iniciar ou pausar.
   - **Verde** = parado. **Âmbar** = correndo. **Vermelho** = tempo esgotado.
-- O primeiro PLAY de um jogo carregado da API já marca o jogo como **ao vivo** no
-  sistema do clube.
+- O primeiro PLAY de um jogo carregado da agenda já marca o jogo como **ao vivo** no
+  agenda do MarQGol.
 - **− / +** ao lado do relógio corrigem o período (tempo/quarto). Não mexem nas
   faltas.
 - **Ajustar** abre o ajuste do relógio: digite minutos e segundos (ou toque num
@@ -279,7 +287,7 @@ jogador. Vale só para este tablet.
   mostrar o lance anterior.
 - Para corrigir um lance mais antigo, abra **Lances** (topo). Cada linha tem
   **Estornar**; a linha pergunta de novo antes de confirmar.
-- Corrigir **não apaga**: no sistema do clube vira um **estorno** do lance, e na
+- Corrigir **não apaga**: na agenda vira um **estorno** do lance, e na
   lista ele fica riscado.
 - Alguns lances não podem mais ser corrigidos por aqui: ponto de um set que já
   fechou e falta de um período que já passou. Nesses casos o botão não aparece.
@@ -297,21 +305,19 @@ Os pontinhos mostram as faltas do período. Ao chegar no limite, eles ficam
 
 É só um aviso; o Controle não bloqueia nada.
 
-### 6.7 Envio ao sistema do clube
+### 6.7 Envio ao agenda do MarQGol
 
-Quando o jogo veio da API, aparece no topo `#número`:
+Quando o jogo veio da agenda, aparece no topo `#número`:
 
 | Indicador | Significado |
 |---|---|
-| `· em dia` | tudo enviado ao sistema do clube |
+| `· em dia` | tudo enviado ao agenda do MarQGol |
 | âmbar `· N enviando` | há lances a caminho |
 | vermelho `· erro` | não está conseguindo enviar (sem conexão, por exemplo) |
 
 Lances pendentes são reenviados **automaticamente** a cada poucos segundos. O
-placar do telão nunca espera a internet. Se o sistema do clube **recusar** algum
-lance, aparece um aviso explicando o motivo.
-
-> Atenção: **não reinicie o servidor** com lances pendentes — eles se perdem.
+placar do telão nunca espera a gravação. Se a súmula **recusar** algum lance,
+aparece um aviso explicando o motivo.
 
 ### 6.8 Mais
 
@@ -324,11 +330,11 @@ segundo); soltar antes cancela.
 | **Cronômetro** | definir minutos e segundos; recomeçar o período |
 | **Inverter lados** | troca qual time fica à esquerda **só neste tablet** (o telão não muda). As cores acompanham o time |
 | **Modo rápido** | marcar sem perguntar o jogador (só neste tablet) |
-| **Encerrar jogo na API** *(segure)* | encerra o jogo no sistema do clube (ver seção 8) |
+| **Encerrar jogo** *(segure)* | encerra o jogo na agenda (ver seção 8) |
 | **Parar a transmissão / Pôr o telão no ar** | liga ou desliga o placar no telão |
 | **Reabrir o último set** | vôlei: desfaz o último fechamento |
 | **Zerar faltas** *(segure)* | zera as faltas dos dois times |
-| **Zerar placar e relógio** *(segure)* | zera os números, **mantendo** times, elenco e o vínculo com a API |
+| **Zerar placar e relógio** *(segure)* | zera os números, **mantendo** times, elenco e o jogo carregado |
 | **Configuração completa / Arquivos de mídia** | atalhos para as outras telas |
 
 **Esc** fecha o painel.
@@ -387,7 +393,7 @@ segundo); soltar antes cancela.
 ## 8. Fim de jogo
 
 1. Confira o placar final.
-2. Se o jogo veio da API: **Mais → Encerrar jogo na API** (segure o botão). O sistema envia
+2. Se o jogo veio da agenda: **Mais → Encerrar jogo** (segure o botão). O sistema envia
    tudo que estiver pendente e registra o resultado (placar, sets e períodos). Se
    houver diferença entre o que o Controle marcou e o que o sistema contou, aparece um
    aviso para conferência.
@@ -466,7 +472,7 @@ curto.
 ## 11. Problemas comuns
 
 **O telão não muda quando marco pontos.**
-Confira se o telão e o tablet estão no mesmo endereço de servidor e na mesma rede.
+Confira se o telão está pareado com o **mesmo placar** que o tablet controla (Área do cliente → Placares) e se os dois têm internet.
 Recarregue as duas páginas (F5).
 
 **O telão continua na tela de espera.**
@@ -481,8 +487,8 @@ configuração**.
 Clique uma vez no telão. Para resolver de vez, o técnico pode abrir o navegador do
 telão assim:
 ```
-chrome.exe --autoplay-policy=no-user-gesture-required --kiosk http://192.168.1.50:4000
-msedge.exe --autoplay-policy=no-user-gesture-required --kiosk http://192.168.1.50:4000
+chrome.exe --autoplay-policy=no-user-gesture-required --kiosk https://marqgol.artzan.tech/telao
+msedge.exe --autoplay-policy=no-user-gesture-required --kiosk https://marqgol.artzan.tech/telao
 ```
 
 **Um vídeo não toca.**
@@ -492,23 +498,25 @@ para convertê-los para `.mp4`.
 **O vídeo novo não aparece na lista.**
 Toque no botão de recarregar (setas em círculo) na tela Mídia.
 
-**As opções de API estão desabilitadas.**
-O servidor não está configurado para o sistema do clube. Use o modo **Manual** e
-avise o responsável técnico.
+**"Seu plano permite N jogos em aberto".**
+Jogos agendados e ao vivo ocupam vaga. Encerre o jogo que acabou (Mais → Encerrar
+jogo) ou cancele jogos que não vão acontecer na Agenda. Jogo agendado que passa
+24 h do horário sem começar expira sozinho e libera a vaga.
+
+**A TV mostra um código em vez do placar.**
+Ela não está pareada (ou foi revogada). Pareie de novo em Placares → Parear TV.
 
 **O indicador `#número` mostra lances enviando há muito tempo.**
-Provavelmente a internet do servidor caiu. O placar segue funcionando; os lances
-serão enviados quando a conexão voltar. **Não reinicie o servidor** enquanto houver
-pendências. Se o indicador ficar vermelho mesmo com internet, avise o técnico (pode ser
-problema de credencial).
+A súmula está sendo gravada; normalmente some em segundos. Se a internet do
+ginásio cair, aparece "Sem conexão" no topo: o que você marcar é enviado quando
+ela voltar. Se o indicador ficar vermelho, avise o suporte.
 
 **Importar PDF/planilha não funciona.**
 Essas funções precisam de internet no aparelho de controle.
 
-**O servidor foi reiniciado no meio do jogo.**
-O placar volta zerado. Recarregue o jogo (Configuração → Carregar), acerte o placar
-pelo Controle e siga. Lances que ainda não tinham sido enviados ao sistema do clube
-precisam ser conferidos na súmula.
+**A página recarregou (ou o tablet desligou) no meio do jogo.**
+Nada se perde: placar, relógio, lances e súmula ficam guardados no servidor.
+Abra o Controle de novo e siga de onde parou.
 
 ---
 
@@ -528,6 +536,6 @@ precisam ser conferidos na súmula.
 - Basquete/futsal: tempo zerou → **Ir para o próximo período** no rodapé.
 
 **Depois**
-1. **Mais → Encerrar jogo na API** (segure).
+1. **Mais → Encerrar jogo** (segure).
 2. **Mais → Parar a transmissão**.
 3. Configuração → **Zerar tudo** (segure), antes do próximo jogo.

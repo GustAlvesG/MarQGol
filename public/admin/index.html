@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#111822">
+<meta name="robots" content="noindex">
+<title>Painel de gestão — MarQGol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="/comum/ui.css">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<!-- Painel do dono do SaaS: clientes, planos, limites, status e auditoria.
+     Single page; a aba atual fica no hash (#visao, #clientes, #cliente/<id>,
+     #planos, #auditoria). -->
+<header class="topo adm-topo">
+    <div class="topo-esq">
+        <a class="marca" href="#visao" aria-label="MarQGol — painel de gestão">
+            <span class="marca-nome">MarQ<b>Gol</b></span>
+            <span class="marca-sub">Painel de gestão</span>
+        </a>
+    </div>
+    <nav class="abas" aria-label="Seções">
+        <a class="aba" href="#visao" data-aba="visao"></a>
+        <a class="aba" href="#clientes" data-aba="clientes"></a>
+        <a class="aba" href="#planos" data-aba="planos"></a>
+        <a class="aba" href="#auditoria" data-aba="auditoria"></a>
+    </nav>
+    <div class="topo-dir">
+        <span class="quem" id="quem" title=""></span>
+        <button type="button" class="btn leve icone" id="btn-sair" title="Sair" aria-label="Sair"></button>
+    </div>
+</header>
+
+<main class="pagina adm-pagina" id="conteudo" tabindex="-1">
+    <div class="vazio">Carregando…</div>
+</main>
+
+<script src="/comum/ui.js"></script>
+<script src="/comum/marq.js"></script>
+<script src="/admin/admin.js"></script>
+</body>
+</html>

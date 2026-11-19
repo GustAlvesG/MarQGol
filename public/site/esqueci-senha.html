@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1428">
+<title>Esqueci a senha — MarQGol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="/comum/ui.css">
+<link rel="stylesheet" href="/comum/site.css">
+</head>
+<body class="site">
+<header class="site-topo"><a class="marca" href="/">MarQ<span>Gol</span></a><nav><a class="btn leve" href="/entrar">Entrar</a></nav></header>
+<main class="caixa-form">
+  <section class="cartao">
+    <h1>Esqueci a senha</h1>
+    <p>Mandamos um link para criar uma senha nova. Ele vale por 1 hora.</p>
+    <div id="msg" hidden></div>
+    <form id="form" novalidate>
+      <div><label class="rotulo" for="email">E-mail da conta</label><input class="campo" id="email" type="email" autocomplete="email" required></div>
+      <button class="btn grande marca-btn" type="submit" id="enviar">Enviar link</button>
+    </form>
+    <p class="rodape-form"><a href="/entrar">Voltar para entrar</a></p>
+  </section>
+</main>
+<script src="/comum/ui.js"></script>
+<script src="/comum/marq.js"></script>
+<script>
+const msg = document.getElementById('msg');
+document.getElementById('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const btn = document.getElementById('enviar');
+    btn.disabled = true;
+    try {
+        await MARQ.api('POST', '/api/auth/esqueci-senha', { email: document.getElementById('email').value });
+        msg.className = 'ok-form';
+        msg.textContent = 'Se houver uma conta com esse e-mail, o link chega em instantes. Confira também a caixa de spam.';
+        document.getElementById('form').hidden = true;
+    } catch (e) {
+        msg.className = 'erro-form';
+        msg.textContent = e.message;
+        btn.disabled = false;
+    }
+    msg.hidden = false;
+});
+</script>
+</body>
+</html>
