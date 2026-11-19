@@ -6,10 +6,11 @@ const { carregarEnv } = require('../env');
 
 function lerConfig(env = process.env) {
     const producao = env.NODE_ENV === 'production';
-    const dominio = env.DOMAIN || 'localhost:4000';
+    const porta = Number(env.PORT) || 4000;
+    const dominio = env.DOMAIN || `localhost:${porta}`;
     return {
         producao,
-        porta: Number(env.PORT) || 4000,
+        porta,
         dominio,
         // URL pública usada em e-mails, links de pagamento e redirecionamentos.
         // Sai do domínio do .env, nunca fixa no código (contrato da VPS).

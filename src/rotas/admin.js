@@ -75,6 +75,10 @@ function rotasAdmin({ repos, contas, cobranca, armazenamento, gerenciador, mw })
         if (documento && !seg.documentoValido(documento)) throw new ErroRegra('CPF ou CNPJ inválido.');
         const plano = await repos.planos.obter(num(b.plano_id));
         if (!plano) throw new ErroRegra('Escolha um plano.');
+        // Confere antes de criar: o convite falharia depois e deixaria o cliente órfão.
+        if (b.convidarAdmin !== false && await repos.usuarios.porEmail(email)) {
+            throw new ErroRegra('Este e-mail já tem uma conta no MarQGol. Use outro e-mail para o administrador.', 409);
+        }
         const status = STATUS.includes(b.status) ? b.status : 'teste';
         const testeAte = status === 'teste' ? (b.teste_ate ? new Date(b.teste_ate) : limites.fimDoTeste(new Date(), plano.dias_teste)) : null;
         const cliente = await repos.clientes.criar({

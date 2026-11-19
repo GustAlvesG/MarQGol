@@ -45,3 +45,9 @@ test('fimDoTeste soma os dias', () => {
     const fim = lim.fimDoTeste(new Date('2026-01-01T12:00:00Z'), 14);
     assert.equal(fim.toISOString().slice(0, 10), '2026-01-15');
 });
+
+test('fimDoTeste aceita 0 dias (plano sem teste)', () => {
+    const inicio = new Date('2026-01-01T12:00:00Z');
+    assert.equal(lim.fimDoTeste(inicio, 0).toISOString(), inicio.toISOString());
+    assert.equal(lim.fimDoTeste(inicio, undefined).toISOString().slice(0, 10), '2026-01-15');
+});

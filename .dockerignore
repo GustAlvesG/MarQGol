@@ -1,0 +1,14 @@
+node_modules
+.git
+.env
+.env.*
+!.env.production.example
+dados
+.pgdata
+.claude
+test
+docs
+public/videos
+public/slides
+public/patrocinadores
+*.log

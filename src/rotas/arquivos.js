@@ -285,12 +285,14 @@ function rotasArquivos({ repos, armazenamento, gerenciador, cfg, mw }) {
     });
     r.delete('/api/admin/clientes/:id/arte/*slot', mw.exigirSuperadmin, async (req, res) => {
         const clienteId = Number(req.params.id);
+        if (!(await repos.clientes.obter(clienteId))) throw new ErroRegra('Cliente não encontrado', 404);
         await armazenamento.removerArte(clienteId, [].concat(req.params.slot).join('/'));
         await incrementarVersaoArte(clienteId);
         res.json(await descreverArte(clienteId));
     });
     r.post('/api/admin/clientes/:id/arte-bordas', mw.exigirSuperadmin, async (req, res) => {
         const clienteId = Number(req.params.id);
+        if (!(await repos.clientes.obter(clienteId))) throw new ErroRegra('Cliente não encontrado', 404);
         await incrementarVersaoArte(clienteId, { bordas: validarBordas((req.body || {}).bordas) });
         res.json(await descreverArte(clienteId));
     });

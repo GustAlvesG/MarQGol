@@ -1,0 +1,101 @@
+# MarQGol — produção na VPS ArtZan (ver "Deploy" no CLAUDE.md).
+# Sobe com o script da VPS: `site novo <repo>` / `site atualizar marqgol`.
+# O HTTPS e o proxy são do edge (Caddy) — nenhuma porta é publicada aqui.
+name: marqgol
+
+x-log: &log
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+x-ambiente-app: &ambiente-app
+  NODE_ENV: production
+  TZ: America/Sao_Paulo
+  PORT: "4000"
+  DOMAIN: ${DOMAIN}
+  APP_URL: https://${DOMAIN}
+  DATABASE_URL: postgres://marqgol:${DB_PASSWORD}@db:5432/marqgol
+  SESSION_SECRET: ${SESSION_SECRET}
+  DATA_DIR: /dados
+  SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL}
+  SUPERADMIN_SENHA: ${SUPERADMIN_SENHA}
+  ASAAS_API_URL: ${ASAAS_API_URL}
+  ASAAS_API_KEY: ${ASAAS_API_KEY}
+  ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN}
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_PORT: ${SMTP_PORT}
+  SMTP_USER: ${SMTP_USER}
+  SMTP_PASS: ${SMTP_PASS}
+  EMAIL_FROM: ${EMAIL_FROM}
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB}
+
+services:
+  web:
+    build: .
+    image: marqgol/web
+    restart: unless-stopped
+    environment: *ambiente-app
+    volumes:
+      - dados:/dados
+    depends_on:
+      db:
+        condition: service_healthy
+    # Rota barata, sem banco: não depende das migrations (o script espera o
+    # healthcheck antes de rodar o pos_subida).
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Para depurar por túnel SSH (deixe comentado):
+    # ports:
+    #   - "127.0.0.1:4000:4000"
+    networks:
+      banco:
+      edge:
+        aliases: [marqgol-web]
+    logging: *log
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: marqgol
+      POSTGRES_USER: marqgol
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: America/Sao_Paulo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marqgol -d marqgol"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - banco
+    logging: *log
+
+  # Migrações + dados iniciais (planos, superadmin). Roda no pos_subida.
+  migrate:
+    image: marqgol/web
+    profiles: [tools]
+    command: ["node", "src/db/migrar.js"]
+    environment: *ambiente-app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - banco
+
+volumes:
+  pgdata:
+  dados:
+
+networks:
+  # Banco isolado: sem internet e fora da rede do edge.
+  banco:
+    internal: true
+  edge:
+    external: true

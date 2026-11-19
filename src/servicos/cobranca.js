@@ -134,7 +134,7 @@ function criarCobranca({ repos, asaas, email, cfg }) {
             await repos.auditoria.registrar({ clienteId: c.id, acao: 'status_automatico', dados: { de: 'teste', para, motivo: 'fim do teste' } });
             await avisarAdmins(c.id, 'Seu período de teste do MarQGol terminou',
                 para === 'suspenso'
-                    ? 'O teste de 14 dias terminou. Assine um plano para voltar a agendar e operar jogos — seus dados continuam guardados.'
+                    ? 'O período de teste terminou. Assine um plano para voltar a agendar e operar jogos — seus dados continuam guardados.'
                     : `O teste terminou e a primeira fatura está em aberto. Pague em até ${DIAS_TOLERANCIA} dias para manter o acesso.`,
                 '/app/#assinatura', 'Assinar agora');
             mudancas.push({ id: c.id, para });

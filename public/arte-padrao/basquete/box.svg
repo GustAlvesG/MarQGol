@@ -4,18 +4,18 @@
   <linearGradient id="bd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6edf7"/><stop offset="1" stop-color="#7f8ca3"/></linearGradient>
   <linearGradient id="pn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#132240"/><stop offset="1" stop-color="#0a1222"/></linearGradient>
 </defs>
-<text x="868" y="168" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="40" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >TEMPO</text><text x="1193" y="168" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="40" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >PERÍODO</text>
+<text x="868" y="168" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="40" letter-spacing="3" fill="#ffffff" fill-opacity="0.9">TEMPO</text><text x="1193" y="168" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="40" letter-spacing="3" fill="#ffffff" fill-opacity="0.9">PERÍODO</text>
 <rect x="673" y="202" width="652" height="156" rx="22" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
 <rect x="687" y="210" width="624" height="4" rx="2" fill="#fff" opacity=".12"/>
 <rect x="670" y="408" width="652" height="316" rx="22" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
 <rect x="684" y="416" width="624" height="4" rx="2" fill="#fff" opacity=".12"/><path d="M956 528 L1036 604 M1036 528 L956 604" stroke="#fff" stroke-width="12" stroke-linecap="square"/>
 <rect x="283" y="200" width="162" height="162" rx="30" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
-<rect x="297" y="208" width="134" height="4" rx="2" fill="#fff" opacity=".12"/><text x="364" y="404" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="34" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >FALTAS</text>
+<rect x="297" y="208" width="134" height="4" rx="2" fill="#fff" opacity=".12"/><text x="364" y="404" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="34" letter-spacing="3" fill="#ffffff" fill-opacity="0.9">FALTAS</text>
 <rect x="1548" y="200" width="162" height="162" rx="30" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
-<rect x="1562" y="208" width="134" height="4" rx="2" fill="#fff" opacity=".12"/><text x="1629" y="404" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="34" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >FALTAS</text>
+<rect x="1562" y="208" width="134" height="4" rx="2" fill="#fff" opacity=".12"/><text x="1629" y="404" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="34" letter-spacing="3" fill="#ffffff" fill-opacity="0.9">FALTAS</text>
 <rect x="200" y="428" width="330" height="332" rx="60" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
 <rect x="214" y="436" width="302" height="4" rx="2" fill="#fff" opacity=".12"/>
 <rect x="1465" y="428" width="330" height="332" rx="60" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
 <rect x="1479" y="436" width="302" height="4" rx="2" fill="#fff" opacity=".12"/>
-<text x="996" y="815" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="52" letter-spacing="3" fill="#ffffff" fill-opacity=".9" font-style="italic" fill-opacity=".55">BASQUETE</text>
+<text x="996" y="815" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="52" letter-spacing="3" fill="#ffffff" fill-opacity="0.55" font-style="italic">BASQUETE</text>
 </svg>

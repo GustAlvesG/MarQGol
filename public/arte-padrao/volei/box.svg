@@ -4,7 +4,7 @@
   <linearGradient id="bd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6edf7"/><stop offset="1" stop-color="#7f8ca3"/></linearGradient>
   <linearGradient id="pn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#132240"/><stop offset="1" stop-color="#0a1222"/></linearGradient>
 </defs>
-<text x="1000" y="106" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="40" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >TEMPO</text>
+<text x="1000" y="106" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="40" letter-spacing="3" fill="#ffffff" fill-opacity="0.9">TEMPO</text>
 <rect x="805" y="128" width="390" height="120" rx="22" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
 <rect x="819" y="136" width="362" height="4" rx="2" fill="#fff" opacity=".12"/>
 <rect x="675" y="298" width="650" height="315" rx="22" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="5"/>
@@ -17,8 +17,8 @@
 <rect x="1481" y="301" width="302" height="4" rx="2" fill="#fff" opacity=".12"/>
 <path d="M155 740 L582 740 L550 838 L187 838 Z" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="4"/>
 <rect x="388" y="720" width="122" height="130" rx="14" fill="#05080f" stroke="url(#bd)" stroke-width="5"/>
-<text x="280" y="806" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="54" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >SETS</text>
+<text x="280" y="806" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="54" letter-spacing="3" fill="#ffffff" fill-opacity="0.9">SETS</text>
 <path d="M1418 740 L1845 740 L1813 838 L1450 838 Z" fill="url(#pn)" fill-opacity=".92" stroke="url(#bd)" stroke-width="4"/>
 <rect x="1490" y="720" width="122" height="130" rx="14" fill="#05080f" stroke="url(#bd)" stroke-width="5"/>
-<text x="1718" y="806" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="54" letter-spacing="3" fill="#ffffff" fill-opacity=".9" >SETS</text>
+<text x="1718" y="806" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="700" font-size="54" letter-spacing="3" fill="#ffffff" fill-opacity="0.9">SETS</text>
 </svg>

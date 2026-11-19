@@ -7,3 +7,4 @@ public/slides/*
 CLAUDE.mddados/
 .pgdata/
 .env.production
+backups/

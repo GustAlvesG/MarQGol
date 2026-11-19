@@ -74,7 +74,8 @@ function clienteOperante(cliente) {
 // Data em que o teste termina, a partir do cadastro.
 function fimDoTeste(inicio, dias) {
     const d = new Date(inicio);
-    d.setDate(d.getDate() + (Number(dias) || 14));
+    const n = Number(dias);
+    d.setDate(d.getDate() + (dias !== null && dias !== undefined && dias !== '' && Number.isFinite(n) ? n : 14));
     return d;
 }
 

@@ -1,0 +1,8 @@
+# MarQGol — o WebSocket (Socket.IO) passa pelo reverse_proxy sem configuração extra.
+${DOMAIN} {
+	encode zstd gzip
+	import seguranca
+	reverse_proxy marqgol-web:4000 {
+		import ip_real
+	}
+}

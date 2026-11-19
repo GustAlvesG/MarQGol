@@ -57,8 +57,8 @@ function painel(x1, y1, x2, y2, r) {
 <rect x="${x1 + 14}" y="${y1 + 8}" width="${x2 - x1 - 28}" height="4" rx="2" fill="#fff" opacity=".12"/>`;
 }
 
-function rotulo(x, y, texto, tam = 40, extra = '') {
-    return `<text x="${x}" y="${y}" text-anchor="middle" ${FONTE} font-size="${tam}" letter-spacing="3" fill="${COR.texto}" fill-opacity=".9" ${extra}>${texto}</text>`;
+function rotulo(x, y, texto, tam = 40, { opacidade = 0.9, italico = false } = {}) {
+    return `<text x="${x}" y="${y}" text-anchor="middle" ${FONTE} font-size="${tam}" letter-spacing="3" fill="${COR.texto}" fill-opacity="${opacidade}"${italico ? ' font-style="italic"' : ''}>${texto}</text>`;
 }
 
 const xis = (x, y) => `<path d="M${x - 40} ${y - 38} L${x + 40} ${y + 38} M${x + 40} ${y - 38} L${x - 40} ${y + 38}" stroke="#fff" stroke-width="12" stroke-linecap="square"/>`;
@@ -72,7 +72,7 @@ ${painel(283, 200, 445, 362, 30)}${rotulo(364, 404, 'FALTAS', 34)}
 ${painel(1548, 200, 1710, 362, 30)}${rotulo(1629, 404, 'FALTAS', 34)}
 ${painel(200, 428, 530, 760, 60)}
 ${painel(1465, 428, 1795, 760, 60)}
-${rotulo(996, 815, nomeEsporte, 52, 'font-style="italic" fill-opacity=".55"')}`);
+${rotulo(996, 815, nomeEsporte, 52, { opacidade: 0.55, italico: true })}`);
 }
 
 function boxVolei() {
