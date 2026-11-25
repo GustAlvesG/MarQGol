@@ -178,6 +178,10 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
   "desfazer por 5 s"). Age só sobre o último lance não estornado e só acende se
   ele for `estornavel`; nunca pula para um lance mais antigo. Ponto/falta →
   `estornar_lance`; set → `reabrir_set`. Lances antigos: gaveta **Lances**.
+- **−N por time** (no painel, ao lado do placar, e na caixa de faltas): estorna
+  o último ponto/falta válido *daquele* time (`ultimoLanceDoTime`) mesmo com
+  lances depois — pedido do usuário, para não ter de desfazer vários e refazer.
+  Sempre confirma (folha `corrigir`); usa `estornar_lance` pelo id, não `sub_ponto`.
 - Ações destrutivas no Mais (zerar, zerar faltas, encerrar na API) são de
   **segurar 1,2 s** (`data-segurar`). A tela não usa `alert()`/`confirm()`:
   avisos abrem uma folha (`avisar()`), retornos rápidos usam `toast()`.

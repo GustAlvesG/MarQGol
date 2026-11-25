@@ -277,7 +277,15 @@ jogador. Vale só para este tablet.
   que minuto). **↩ Desfazer** desfaz exatamente esse lance, **sem prazo**: o
   botão continua lá até o próximo lance. Depois de desfazer, o rodapé passa a
   mostrar o lance anterior.
-- Para corrigir um lance mais antigo, abra **Lances** (topo). Cada linha tem
+- Errou um ponto ou uma falta de um time, mas **já marcou outras coisas
+  depois**? Use o **↩ −1** do próprio time: o que fica ao lado do placar tira o
+  **último ponto daquele time** (no basquete aparece −2 ou −3, conforme a
+  cesta), e o que fica na caixa de faltas tira a **última falta daquele time**.
+  O que foi marcado depois continua valendo — não é preciso desfazer tudo e
+  marcar de novo. A tela sempre pergunta antes, dizendo qual lance sai e como o
+  placar fica.
+- Para corrigir qualquer outro lance, abra **Lances** (topo, ou **Outro lance**
+  na pergunta do −1). Cada linha tem
   **Estornar**; a linha pergunta de novo antes de confirmar.
 - Corrigir **não apaga**: no sistema do clube vira um **estorno** do lance, e na
   lista ele fica riscado.
@@ -523,7 +531,7 @@ precisam ser conferidos na súmula.
 **Durante**
 - Relógio: toque = play/pausa.
 - Ponto: botão grande → jogador (ou **Marcar sem jogador**; **Cancelar** se errou o botão).
-- Errou o lance: **↩ Desfazer** no rodapé (sem prazo). Lance antigo: **Lances → Estornar**.
+- Errou o lance: **↩ Desfazer** no rodapé (sem prazo). Já marcou outros depois: **↩ −1** do time. Qualquer outro: **Lances → Estornar**.
 - Vôlei: **Fechar set** quando aparecer; **Desfazer** se fechou por engano.
 - Basquete/futsal: tempo zerou → **Ir para o próximo período** no rodapé.
 

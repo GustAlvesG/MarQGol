@@ -133,6 +133,13 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
 .sets .bola { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); }
 .sets .bola.on { background: var(--c); border-color: var(--c-claro); }
 .sets .n { margin-left: auto; font-family: var(--f-num); font-size: 42px; }
+/* Correção por time: tira o último ponto/falta DESTE time, mesmo que depois
+   dele tenham sido marcados outros lances (o Desfazer só pega o último do jogo). */
+.btn-corrigir { flex: none; height: 52px; min-width: 68px; padding: 0 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--c-linha); color: var(--c-claro); font-family: var(--f-rot); font-weight: 800; font-size: 20px; letter-spacing: .04em; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-corrigir svg { font-size: 20px; }
+.btn-corrigir:active { background: var(--surface-3); }
+.faltas .btn-corrigir { height: 48px; min-width: 60px; margin-left: auto; }
+.faltas .aviso:not([hidden]) + .btn-corrigir { margin-left: 0; }
 
 /* Rodapé da mesa: último lance + Desfazer (sempre à mão) e a ação do momento. */
 .rodape-mesa { display: flex; gap: 12px; align-items: stretch; min-height: 72px; }
@@ -186,6 +193,8 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
 .btn-grande.cinza { background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); flex: 0 0 auto; min-width: 200px; }
 .btn-grande.cor { background: var(--c); color: #fff; }
 .btn-grande.claro { background: var(--fg); color: var(--bg); }
+.btn-grande.perigo { background: var(--perigo); color: #fff; }
+.folha.aviso .folha-pe .btn-grande.cinza { min-width: 0; }
 
 .gaveta { width: min(540px, 100%); height: 100%; background: var(--surface); border-left: 1px solid var(--line); display: grid; grid-template-rows: auto auto 1fr; animation: entra .22s cubic-bezier(.2,.9,.3,1); padding-bottom: env(safe-area-inset-bottom, 0); }
 @keyframes entra { from { transform: translateX(60px); opacity: 0; } }
@@ -440,6 +449,7 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
         <div class="painel-cab">
           <span class="escudo" id="escudo-a"></span>
           <div class="painel-nome"><b id="nome-a">Casa</b><small id="info-a"></small></div>
+          <button class="btn-corrigir" id="corrigir-a" data-acao="corrigir" data-lado="a" data-v="ponto" disabled aria-label="Tirar o último ponto deste time"><svg class="i"><use href="#i-undo"/></svg><span id="corrigir-a-v">−1</span></button>
           <span class="placar" id="placar-a">0</span>
         </div>
         <div class="pontos" id="pontos-a"></div>
@@ -450,6 +460,7 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
         <div class="painel-cab">
           <span class="escudo" id="escudo-b"></span>
           <div class="painel-nome"><b id="nome-b">Visitante</b><small id="info-b"></small></div>
+          <button class="btn-corrigir" id="corrigir-b" data-acao="corrigir" data-lado="b" data-v="ponto" disabled aria-label="Tirar o último ponto deste time"><svg class="i"><use href="#i-undo"/></svg><span id="corrigir-b-v">−1</span></button>
           <span class="placar" id="placar-b">0</span>
         </div>
         <div class="pontos" id="pontos-b"></div>
@@ -459,7 +470,8 @@ svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width:
 
     <div class="rodape-mesa">
       <!-- Desfazer SEMPRE à mão: o último lance que ainda vale fica aqui até
-           o próximo, sem prazo. Substitui os antigos "−1" + confirm(). -->
+           o próximo, sem prazo. Para corrigir um time sem desfazer o que veio
+           depois, cada painel tem o seu −N (ver ultimoLanceDoTime). -->
       <div class="ultimo" id="ultimo">
         <span class="tarja" id="ultimo-tarja"></span>
         <div class="txt"><small id="ultimo-rot">Último lance</small><b id="ultimo-txt">Nenhum lance ainda</b></div>
@@ -630,7 +642,7 @@ function montarEsporte() {
         pontos.innerHTML = c.botoes.map(b =>
             `<button class="btn-ponto" data-acao="ponto" data-lado="${lado}" data-v="${b.v}"><b>+${b.v}</b><small>${esc(b.t)}</small></button>`).join('');
         $('rodape-' + lado).innerHTML = c.faltas
-            ? `<div class="faltas"><div class="rot">Faltas<b id="faltas-${lado}">0</b></div><div class="pips" id="pips-${lado}"></div><div class="aviso" id="aviso-falta-${lado}" hidden>${c.avisoFalta}</div></div>
+            ? `<div class="faltas"><div class="rot">Faltas<b id="faltas-${lado}">0</b></div><div class="pips" id="pips-${lado}"></div><div class="aviso" id="aviso-falta-${lado}" hidden>${c.avisoFalta}</div><button class="btn-corrigir" id="corrigir-falta-${lado}" data-acao="corrigir" data-lado="${lado}" data-v="falta" disabled aria-label="Tirar a última falta deste time">${ic('undo')}−1</button></div>
                <button class="btn-falta" data-acao="falta" data-lado="${lado}">${ic('plus')}Falta</button>`
             : c.sets
                 ? `<div class="sets"><span class="rot">Sets vencidos</span><div class="bolas" id="bolas-${lado}"></div><span class="n" id="sets-${lado}">0</span></div>`
@@ -689,6 +701,16 @@ function renderMesa() {
 
         $('selo-' + lado).hidden = estado.setPoint !== chave;
 
+        // −N mostra o valor do ponto que sairia (basquete: −2, −3...). Apaga
+        // quando o último ponto do time já não pode ser estornado (set fechado).
+        const lp = ultimoLanceDoTime(chave, 'ponto');
+        $('corrigir-' + lado).disabled = !(lp && lp.estornavel);
+        $('corrigir-' + lado + '-v').textContent = `−${lp ? lp.valor : 1}`;
+        if (c.faltas) {
+            const lf = ultimoLanceDoTime(chave, 'falta');
+            $('corrigir-falta-' + lado).disabled = !(lf && lf.estornavel);
+        }
+
         if (c.faltas) {
             const f = time.faltas || 0;
             const limite = estado.limiteFaltas || 5;
@@ -723,6 +745,17 @@ function renderMesa() {
 function ultimoLanceValido() {
     const lances = estado.lances || [];
     for (let i = lances.length - 1; i >= 0; i--) if (!lances[i].estornado) return lances[i];
+    return null;
+}
+
+// Último ponto (ou falta) que ainda vale de UM time. É o que o "−1" do painel
+// tira: corrige o time sem desfazer o que foi marcado depois para o outro.
+function ultimoLanceDoTime(chave, tipo) {
+    const lances = estado.lances || [];
+    for (let i = lances.length - 1; i >= 0; i--) {
+        const l = lances[i];
+        if (!l.estornado && l.tipo === tipo && l.time === chave) return l;
+    }
     return null;
 }
 
@@ -987,6 +1020,7 @@ function abrirFolha(qual, opcoes = {}) {
     }
     else if (qual === 'aviso') cam.innerHTML = htmlAviso(opcoes.titulo, opcoes.texto);
     else if (qual === 'por-no-ar') cam.innerHTML = htmlPorNoAr();
+    else if (qual === 'corrigir') cam.innerHTML = htmlCorrigir(opcoes.lance);
     cam.querySelector('[data-foco]')?.focus();
 }
 
@@ -1004,6 +1038,28 @@ function htmlPorNoAr() {
           <button class="btn-grande claro" data-acao="ir-com-telao" data-foco>${ic('power')}Sim, pôr no ar</button>
         </div></div></div>`;
 }
+// Confirmação do "−1" de um time. Pergunta sempre: o lance pode não ser o
+// último do jogo, então a folha diz exatamente qual sai e como fica o número —
+// pega também o erro de lado. Lances marcados depois dele continuam valendo.
+function htmlCorrigir(l) {
+    const nome = nomeDoTime(l.time);
+    const t = estado[l.time];
+    const periodo = cfg().periodo ? ` · ${l.periodo}º ${cfg().periodo}` : (l.parcial ? ` · ${l.parcial}º set` : '');
+    const efeito = l.tipo === 'ponto'
+        ? `O placar de ${nome} vai de ${t.placar} para ${Math.max(0, t.placar - (l.valor || 0))}.`
+        : `As faltas de ${nome} vão de ${t.faltas} para ${Math.max(0, (t.faltas || 0) - 1)}.`;
+    const depois = (estado.lances || []).filter(x => x.id > l.id && !x.estornado).length;
+    const resto = depois ? `\nOs ${depois === 1 ? 'lance marcado' : depois + ' lances marcados'} depois dele ${depois === 1 ? 'continua' : 'continuam'} valendo.` : '';
+    return `<div class="veu centro" data-acao="fechar-folha"><div class="folha aviso ${temaDoTime(l.time)}" role="alertdialog" aria-modal="true" aria-label="Corrigir lance" data-parar>
+        <div class="folha-cab"><h2>Tirar ${esc(tituloDoLance(l))} de ${esc(nome)}?<small>${esc(quemDoLance(l))} · ${tempoDoLance(l)}${esc(periodo)}</small></h2></div>
+        <div class="folha-corpo">${(efeito + resto).split('\n').map(p => `<p>${esc(p)}</p>`).join('')}</div>
+        <div class="folha-pe">
+          <button class="btn-grande cinza" data-acao="fechar-folha" data-foco>Cancelar</button>
+          <button class="btn-grande cinza" data-acao="abrir-lances">${ic('list')}Outro lance</button>
+          <button class="btn-grande perigo" data-acao="corrigir-sim" data-v="${l.id}">${ic('undo')}Tirar</button>
+        </div></div></div>`;
+}
+
 function fecharFolha() { folha = null; pendente = null; confirmaEstorno = null; $('camada').innerHTML = ''; }
 
 // Substitui alert(): o aviso fica na tela até o operador fechar.
@@ -1310,6 +1366,17 @@ const ACOES = {
     // que MARCA o lance e só não o credita a ninguém.
     'cancelar-jogador': () => fecharFolha(),
     desfazer: () => desfazerLance(ultimoLanceValido()),
+    corrigir: (v, el) => {
+        const l = ultimoLanceDoTime(timeDoLado(el.dataset.lado), v);
+        if (l && l.estornavel) abrirFolha('corrigir', { lance: l });
+    },
+    // Revalida pelo id: outro tablet pode ter mexido enquanto a folha estava aberta.
+    'corrigir-sim': (v) => {
+        const l = (estado.lances || []).find(x => x.id === Number(v));
+        fecharFolha();
+        if (l && l.estornavel) desfazerLance(l);
+        else toast('Esse lance já foi corrigido');
+    },
     'abrir-lances': () => abrirFolha('lances'),
     'abrir-menu': (v) => abrirFolha('menu', { secao: v }),
     'fechar-folha': () => fecharFolha(),

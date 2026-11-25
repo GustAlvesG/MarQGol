@@ -639,7 +639,13 @@ mesa só depende da internet para as fontes, que têm fallback. Tema escuro fixo
 - **Desfazer fica sempre disponível** (sem prazo): age sobre o último lance não
   estornado, e só acende se *ele* for estornável — nunca pula para um lance mais
   antigo. Ponto/falta → `estornar_lance`; fechamento de set → `reabrir_set`.
-  Substitui os antigos “−1” com `confirm()`.
+- **−N por time** (ao lado do placar de cada painel, e **−1** na caixa de
+  faltas): estorna o último ponto/falta válido **daquele time**
+  (`ultimoLanceDoTime`), mesmo que outros lances tenham vindo depois — corrige
+  sem desfazer e refazer. Mostra o valor que sairia (basquete −2/−3), apaga se
+  esse lance não for `estornavel` e sempre confirma numa folha que diz o lance,
+  o efeito no placar e quantos lances posteriores continuam valendo (com atalho
+  para a gaveta). Também é `estornar_lance` pelo id — nunca `sub_ponto`.
 - **Lances** (gaveta à direita): lance a lance com minuto, período e jogador;
   *Estornar*/*Reabrir* com confirmação na própria linha. O que pode ser corrigido
   vem em `lance.estornavel` (servidor).
